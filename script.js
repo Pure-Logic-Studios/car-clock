@@ -681,7 +681,7 @@
       for (let i = 0; i <= CONFIG.staging.baysPerRow; i++) {
         const x = CONFIG.staging.startX + i * ((CONFIG.staging.endX - CONFIG.staging.startX) / CONFIG.staging.baysPerRow);
         const divGeo = new THREE.PlaneGeometry(0.12, 5.6);
-        divMesh = new THREE.Mesh(divGeo, lineWhiteMat);
+        const divMesh = new THREE.Mesh(divGeo, lineWhiteMat);
         divMesh.rotation.x = -Math.PI / 2;
         divMesh.position.set(x, 0, zPos);
         runwayLinesGroup.add(divMesh);
