@@ -274,14 +274,15 @@
     }),
     headlightLens: new THREE.MeshStandardMaterial({
       color: 0xffffff,
-      emissive: 0xffffff,
-      emissiveIntensity: 1.2,
+      emissive: 0xfff8ee,
+      emissiveIntensity: 1.8,
       roughness: 0.05,
+      metalness: 0.1,
     }),
     taillightLens: new THREE.MeshStandardMaterial({
       color: 0xff1e27,
       emissive: 0xff0015,
-      emissiveIntensity: 1.0,
+      emissiveIntensity: 1.5,
       roughness: 0.15,
     }),
     chrome: new THREE.MeshStandardMaterial({
@@ -502,22 +503,19 @@
     drlR.position.set(CONFIG.car.width * 0.36, 0.38, CONFIG.car.length / 2 + 0.03);
     suspensionGroup.add(drlR);
 
-    // Night Mode Spotlights
-    const spotL = new THREE.SpotLight(0xfffaed, 0, 32, Math.PI / 5.5, 0.35, 1.2);
-    spotL.position.set(-CONFIG.car.width * 0.36, 0.35, CONFIG.car.length / 2 + 0.2);
-    const spotTargetL = new THREE.Object3D();
-    spotTargetL.position.set(-CONFIG.car.width * 0.36, 0, CONFIG.car.length / 2 + 15);
-    suspensionGroup.add(spotL);
-    suspensionGroup.add(spotTargetL);
-    spotL.target = spotTargetL;
+    // Glowing Front LED Projector Lenses (Bright jewel projectors without per-car SpotLight entities)
+    const projectorGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.06, 12);
+    projectorGeo.rotateX(Math.PI / 2);
+    const projectorMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    [-0.1, 0.1].forEach(offsetX => {
+      const projL = new THREE.Mesh(projectorGeo, projectorMat);
+      projL.position.set(-CONFIG.car.width * 0.36 + offsetX, 0.32, CONFIG.car.length / 2 + 0.08);
+      suspensionGroup.add(projL);
 
-    const spotR = new THREE.SpotLight(0xfffaed, 0, 32, Math.PI / 5.5, 0.35, 1.2);
-    spotR.position.set(CONFIG.car.width * 0.36, 0.35, CONFIG.car.length / 2 + 0.2);
-    const spotTargetR = new THREE.Object3D();
-    spotTargetR.position.set(CONFIG.car.width * 0.36, 0, CONFIG.car.length / 2 + 15);
-    suspensionGroup.add(spotR);
-    suspensionGroup.add(spotTargetR);
-    spotR.target = spotTargetR;
+      const projR = new THREE.Mesh(projectorGeo, projectorMat);
+      projR.position.set(CONFIG.car.width * 0.36 + offsetX, 0.32, CONFIG.car.length / 2 + 0.08);
+      suspensionGroup.add(projR);
+    });
 
     // 4. Taillights (Sleek Full-Width Red LED Light Bar)
     const taillightMat = carMaterials.taillightLens.clone();
@@ -603,8 +601,6 @@
       bodyMat: bodyMat,
       headlightMat: headlightMat,
       taillightMat: taillightMat,
-      spotL: spotL,
-      spotR: spotR,
       steerPivotFL: steerPivotFL,
       steerPivotFR: steerPivotFR,
       wheels: [wheelFL, wheelFR, wheelRL, wheelRR],
@@ -1071,10 +1067,8 @@
       });
 
       carFleet.forEach(car => {
-        car.headlightMat.emissiveIntensity = car.state === 'driving' ? 1.0 : 0.4;
-        car.spotL.intensity = 0;
-        car.spotR.intensity = 0;
-        car.taillightMat.emissiveIntensity = car.state === 'driving' ? 1.0 : 0.4;
+        car.headlightMat.emissiveIntensity = car.state === 'driving' ? 1.4 : 0.6;
+        car.taillightMat.emissiveIntensity = car.state === 'driving' ? 1.2 : 0.5;
       });
 
     } else if (mode === 'sunset') {
@@ -1086,15 +1080,13 @@
       ambientLight.intensity = 0.55;
 
       floodlights.forEach(f => {
-        f.spot.intensity = state.toggleFloodlights ? 0.6 : 0;
-        f.lampMat.emissiveIntensity = 0.6;
+        f.spot.intensity = state.toggleFloodlights ? 0.75 : 0;
+        f.lampMat.emissiveIntensity = 0.8;
       });
 
       carFleet.forEach(car => {
-        car.headlightMat.emissiveIntensity = 1.0;
-        car.spotL.intensity = 0.5;
-        car.spotR.intensity = 0.5;
-        car.taillightMat.emissiveIntensity = 0.8;
+        car.headlightMat.emissiveIntensity = 2.0;
+        car.taillightMat.emissiveIntensity = 1.6;
       });
 
     } else if (mode === 'night') {
@@ -1103,18 +1095,16 @@
       sunLight.intensity = 0.12;
       sunLight.position.set(20, 50, 20);
       ambientLight.color.set(0x0f172a);
-      ambientLight.intensity = 0.25;
+      ambientLight.intensity = 0.3;
 
       floodlights.forEach(f => {
-        f.spot.intensity = state.toggleFloodlights ? 2.0 : 0;
-        f.lampMat.emissiveIntensity = 1.0;
+        f.spot.intensity = state.toggleFloodlights ? 2.2 : 0;
+        f.lampMat.emissiveIntensity = 1.2;
       });
 
       carFleet.forEach(car => {
-        car.headlightMat.emissiveIntensity = 1.2;
-        car.spotL.intensity = 1.5;
-        car.spotR.intensity = 1.5;
-        car.taillightMat.emissiveIntensity = 1.0;
+        car.headlightMat.emissiveIntensity = 3.0;
+        car.taillightMat.emissiveIntensity = 2.2;
       });
     }
   }
@@ -1335,11 +1325,8 @@
     car.prevPos.copy(startPos);
 
     if (state.soundEnabled) playCarSound('rev');
-    car.headlightMat.emissiveIntensity = 1.2;
-    if (state.lightingMode === 'night') {
-      car.spotL.intensity = 1.5;
-      car.spotR.intensity = 1.5;
-    }
+    car.headlightMat.emissiveIntensity = state.lightingMode === 'night' ? 3.0 : 1.6;
+    car.taillightMat.emissiveIntensity = 1.8;
 
     if (state.cameraMode === 'follow' && (state.trackedCarIndex === -1 || carFleet[state.trackedCarIndex]?.state !== 'driving')) {
       state.trackedCarIndex = carFleet.indexOf(car);
@@ -1496,7 +1483,8 @@
           car.mesh.rotation.y = car.targetYaw;
           car.steerPivotFL.rotation.y = 0;
           car.steerPivotFR.rotation.y = 0;
-          car.taillightMat.emissiveIntensity = state.lightingMode === 'night' ? 0.8 : 0.4;
+          car.taillightMat.emissiveIntensity = state.lightingMode === 'night' ? 2.2 : (state.lightingMode === 'sunset' ? 1.6 : 0.5);
+          car.headlightMat.emissiveIntensity = state.lightingMode === 'night' ? 3.0 : (state.lightingMode === 'sunset' ? 2.0 : 0.6);
 
           if (state.soundEnabled) playCarSound('brake');
         }
@@ -1572,6 +1560,77 @@
     });
   }
 
+  function getResponsiveCameraConfig(presetName) {
+    const aspect = window.innerWidth / window.innerHeight;
+
+    if (presetName === 'perspective') {
+      if (aspect < 0.65) {
+        // Very tall/narrow mobile screen in portrait (e.g. 9:19.5, 9:20)
+        return {
+          pos: new THREE.Vector3(0, 75, 82),
+          target: new THREE.Vector3(0, 0, 0),
+          up: new THREE.Vector3(0, 1, 0),
+          fov: 56,
+        };
+      } else if (aspect < 0.95) {
+        // Standard phone portrait / small tablet
+        return {
+          pos: new THREE.Vector3(0, 70, 75),
+          target: new THREE.Vector3(0, 0, 0),
+          up: new THREE.Vector3(0, 1, 0),
+          fov: 52,
+        };
+      } else if (aspect < 1.2) {
+        // iPad portrait / foldable / square screen
+        return {
+          pos: new THREE.Vector3(0, 58, 62),
+          target: new THREE.Vector3(0, 0, 0),
+          up: new THREE.Vector3(0, 1, 0),
+          fov: 50,
+        };
+      } else {
+        // Standard desktop / widescreen landscape
+        return {
+          pos: new THREE.Vector3(0, 48, 46),
+          target: new THREE.Vector3(0, 0, 0),
+          up: new THREE.Vector3(0, 1, 0),
+          fov: 48,
+        };
+      }
+    } else if (presetName === 'aerial') {
+      if (aspect < 0.65) {
+        return {
+          pos: new THREE.Vector3(0, 125, 24),
+          target: new THREE.Vector3(0, 0, 0),
+          up: new THREE.Vector3(0, 1, 0),
+          fov: 54,
+        };
+      } else if (aspect < 0.95) {
+        return {
+          pos: new THREE.Vector3(0, 105, 20),
+          target: new THREE.Vector3(0, 0, 0),
+          up: new THREE.Vector3(0, 1, 0),
+          fov: 50,
+        };
+      } else if (aspect < 1.2) {
+        return {
+          pos: new THREE.Vector3(0, 88, 18),
+          target: new THREE.Vector3(0, 0, 0),
+          up: new THREE.Vector3(0, 1, 0),
+          fov: 48,
+        };
+      } else {
+        return {
+          pos: new THREE.Vector3(0, 72, 16),
+          target: new THREE.Vector3(0, 0, 0),
+          up: new THREE.Vector3(0, 1, 0),
+          fov: 46,
+        };
+      }
+    }
+    return null;
+  }
+
   function setCameraPreset(presetName) {
     state.cameraMode = presetName;
 
@@ -1583,7 +1642,12 @@
 
     if (presetName === 'perspective') {
       if (followCard) followCard.classList.add('hidden');
-      transitionCameraTo(CONFIG.camera.perspective.pos, CONFIG.camera.perspective.target, CONFIG.camera.perspective.up);
+      const cfg = getResponsiveCameraConfig('perspective');
+      if (cfg) {
+        camera.fov = cfg.fov;
+        camera.updateProjectionMatrix();
+        transitionCameraTo(cfg.pos, cfg.target, cfg.up);
+      }
       if (controls) {
         controls.enabled = true;
         controls.autoRotate = false;
@@ -1592,7 +1656,12 @@
 
     } else if (presetName === 'aerial') {
       if (followCard) followCard.classList.add('hidden');
-      transitionCameraTo(CONFIG.camera.aerial.pos, CONFIG.camera.aerial.target, CONFIG.camera.aerial.up);
+      const cfg = getResponsiveCameraConfig('aerial');
+      if (cfg) {
+        camera.fov = cfg.fov;
+        camera.updateProjectionMatrix();
+        transitionCameraTo(cfg.pos, cfg.target, cfg.up);
+      }
       if (controls) {
         controls.enabled = true;
         controls.autoRotate = false;
@@ -2013,7 +2082,37 @@
       });
     }
 
-    // 9. Keyboard Shortcuts
+    // 9. Floating HUD Toggle Button & Canvas Tap
+    const btnToggleHud = document.getElementById('btn-toggle-hud');
+    if (btnToggleHud) {
+      btnToggleHud.addEventListener('click', toggleHUD);
+    }
+
+    // Tap anywhere on 3D canvas (when not dragging) to toggle HUD
+    const canvasContainer = document.getElementById('canvas-container');
+    if (canvasContainer) {
+      let pointerStartX = 0;
+      let pointerStartY = 0;
+      let pointerStartTime = 0;
+
+      canvasContainer.addEventListener('pointerdown', (e) => {
+        pointerStartX = e.clientX;
+        pointerStartY = e.clientY;
+        pointerStartTime = Date.now();
+      });
+
+      canvasContainer.addEventListener('pointerup', (e) => {
+        const dx = Math.abs(e.clientX - pointerStartX);
+        const dy = Math.abs(e.clientY - pointerStartY);
+        const dt = Date.now() - pointerStartTime;
+        // If quick tap without dragging
+        if (dx < 8 && dy < 8 && dt < 280) {
+          toggleHUD();
+        }
+      });
+    }
+
+    // 10. Keyboard Shortcuts
     window.addEventListener('keydown', (e) => {
       if (e.target && e.target.tagName === 'INPUT') return;
 
@@ -2049,14 +2148,24 @@
           break;
         case 'h':
         case 'H':
-          const hudOverlay = document.getElementById('hud-overlay');
-          if (hudOverlay) hudOverlay.classList.toggle('hidden-hud');
+          toggleHUD();
           break;
       }
     });
 
-    // 10. Window Resize Handler
+    // 11. Window Resize Handler
     window.addEventListener('resize', onWindowResize);
+  }
+
+  function toggleHUD() {
+    const hudOverlay = document.getElementById('hud-overlay');
+    const icon = document.getElementById('hud-toggle-icon');
+    if (!hudOverlay) return;
+    const isHidden = hudOverlay.classList.toggle('hidden-hud');
+    if (icon) {
+      icon.className = isHidden ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash';
+    }
+    showToast(isHidden ? 'HUD Hidden (Tap eye or press H to show)' : 'HUD Visible');
   }
 
   function setActiveButton(groupSelector, activeId) {
@@ -2067,9 +2176,26 @@
 
   function onWindowResize() {
     if (!camera || !renderer) return;
-    camera.aspect = window.innerWidth / window.innerHeight;
+    const aspect = window.innerWidth / window.innerHeight;
+    camera.aspect = aspect;
+
+    const cfg = getResponsiveCameraConfig(state.cameraMode);
+    if (cfg) {
+      camera.fov = cfg.fov;
+      if (!camAnim.isTransitioning && (state.cameraMode === 'perspective' || state.cameraMode === 'aerial')) {
+        camera.position.copy(cfg.pos);
+        currentLookAt.copy(cfg.target);
+        camera.lookAt(currentLookAt);
+        if (controls) {
+          controls.target.copy(cfg.target);
+          controls.update();
+        }
+      }
+    }
+
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   }
 
   // --- Date Initialization ---
@@ -2094,12 +2220,13 @@
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x090e18);
 
-    // Default to high-angle isometric perspective (y: 48, z: 46) matching installation photo angle
-    camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 500);
-    camera.position.copy(CONFIG.camera.perspective.pos);
-    camera.up.copy(CONFIG.camera.perspective.up);
-    camera.lookAt(CONFIG.camera.perspective.target);
-    currentLookAt.copy(CONFIG.camera.perspective.target);
+    const aspect = window.innerWidth / window.innerHeight;
+    const initialCamCfg = getResponsiveCameraConfig('perspective');
+    camera = new THREE.PerspectiveCamera(initialCamCfg.fov, aspect, 0.1, 600);
+    camera.position.copy(initialCamCfg.pos);
+    camera.up.copy(initialCamCfg.up);
+    camera.lookAt(initialCamCfg.target);
+    currentLookAt.copy(initialCamCfg.target);
 
     renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -2110,14 +2237,21 @@
     renderer.toneMappingExposure = 1.15;
     container.appendChild(renderer.domElement);
 
-    // 2. OrbitControls
+    // 2. OrbitControls with smooth touch gestures support
     if (typeof THREE.OrbitControls !== 'undefined') {
       controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
-      controls.dampingFactor = 0.05;
+      controls.dampingFactor = 0.06;
+      controls.rotateSpeed = 0.75;
+      controls.zoomSpeed = 0.9;
+      controls.panSpeed = 0.8;
       controls.maxPolarAngle = Math.PI / 2 - 0.05;
       controls.minDistance = 15;
-      controls.maxDistance = 180;
+      controls.maxDistance = 240;
+      controls.touches = {
+        ONE: THREE.TOUCH.ROTATE,
+        TWO: THREE.TOUCH.DOLLY_PAN,
+      };
       controls.target.set(0, 0, 0);
     }
 
