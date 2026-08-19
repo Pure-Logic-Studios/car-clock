@@ -11,39 +11,39 @@
   // --- Configuration & Constants ---
   const CONFIG = {
     car: {
-      length: 4.3,
-      width: 2.0,
+      length: 4.2,
+      width: 1.9,
       height: 1.25,
       wheelRadius: 0.38,
       wheelWidth: 0.24,
-      wheelbase: 2.65,
-      trackWidth: 1.62,
+      wheelbase: 2.6,
+      trackWidth: 1.58,
       color: '#ffffff',
     },
     digit: {
-      horizOffset: 4.8,  // Distance of top/bottom segments from center
-      vertOffset: 2.5,   // Distance of side segments from vertical center
-      sideOffset: 2.6,   // Distance of side segments from horizontal center
+      horizOffset: 5.7,  // Distance of top/bottom horizontal segments from center
+      vertOffset: 3.6,   // Distance of side vertical segments from vertical center
+      sideOffset: 3.6,   // Distance of side vertical segments from horizontal center
     },
     staging: {
-      northZ: -17.5,
-      southZ: 17.5,
+      northZ: -18.5,
+      southZ: 18.5,
       baysPerRow: 26,
-      startX: -38,
-      endX: 38,
+      startX: -42,
+      endX: 42,
     },
     camera: {
-      perspective: { pos: new THREE.Vector3(0, 48, 46), target: new THREE.Vector3(0, 0, 0), up: new THREE.Vector3(0, 1, 0) },
-      aerial: { pos: new THREE.Vector3(0, 72, 16), target: new THREE.Vector3(0, 0, 0), up: new THREE.Vector3(0, 1, 0) },
+      perspective: { pos: new THREE.Vector3(0, 54, 52), target: new THREE.Vector3(0, 0, 0), up: new THREE.Vector3(0, 1, 0) },
+      aerial: { pos: new THREE.Vector3(0, 80, 16), target: new THREE.Vector3(0, 0, 0), up: new THREE.Vector3(0, 1, 0) },
     }
   };
 
   const DIGIT_LAYOUT = {
     // 6-digit mode: [H1, H2] : [M1, M2] : [S1, S2]
-    digits6: [-22.5, -14.2, -4.2, 4.2, 14.2, 22.5],
-    colons6: [-9.2, 9.2],
+    digits6: [-33.0, -21.4, -5.8, 5.8, 21.4, 33.0],
+    colons6: [-13.6, 13.6],
     // 4-digit mode: [H1, H2] : [M1, M2]
-    digits4: [-13.5, -5.0, 5.0, 13.5],
+    digits4: [-20.6, -9.0, 9.0, 20.6],
     colons4: [0],
   };
 
@@ -605,7 +605,7 @@
       steerPivotFR: steerPivotFR,
       wheels: [wheelFL, wheelFR, wheelRL, wheelRR],
       // Animation & Navigation State
-      state: 'idle', // 'idle', 'driving', 'settling'
+      state: 'idle', // 'idle', 'waiting', 'driving', 'settling'
       currentSlot: null, // { type: 'staging'|'segment', id/key: '...' }
       targetSlot: null,
       targetPos: null,
@@ -613,6 +613,8 @@
       pathCurve: null,
       transitProgress: 0,
       transitDuration: 2.8,
+      startDelay: 0,
+      laneOffset: 0,
       speed: 0,
       prevPos: new THREE.Vector3(),
       wheelRollAngle: 0,
@@ -629,7 +631,7 @@
 
   function buildEnvironment() {
     // 1. Giant Ground Runway Tarmac with Real Soft Shadows
-    const groundGeo = new THREE.PlaneGeometry(180, 130);
+    const groundGeo = new THREE.PlaneGeometry(210, 145);
     const asphaltTex = createAsphaltTexture();
     const groundMat = new THREE.MeshStandardMaterial({
       map: asphaltTex,
@@ -668,10 +670,10 @@
     const stallCornerMat = new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: true, opacity: 0.75 });
 
     // 1. Staging Parking Bays Outlines
-    // North Staging (Z = -17.5) & South Staging (Z = +17.5)
+    // North Staging (Z = -18.5) & South Staging (Z = +18.5)
     [-CONFIG.staging.southZ, CONFIG.staging.southZ].forEach(zPos => {
       // Long bounding line
-      const boundGeo = new THREE.PlaneGeometry(82, 0.16);
+      const boundGeo = new THREE.PlaneGeometry(88, 0.16);
       const boundMesh = new THREE.Mesh(boundGeo, lineWhiteMat);
       boundMesh.rotation.x = -Math.PI / 2;
       boundMesh.position.set(0, 0, zPos + (zPos > 0 ? 2.8 : -2.8));
@@ -689,29 +691,43 @@
     });
 
     // 2. Clock Runway Central Apron Boundary
-    const apronBoundGeo = new THREE.PlaneGeometry(92, 0.22);
+    const apronBoundGeo = new THREE.PlaneGeometry(98, 0.22);
     const apronNorth = new THREE.Mesh(apronBoundGeo, lineYellowMat);
     apronNorth.rotation.x = -Math.PI / 2;
-    apronNorth.position.set(0, 0, -11.8);
+    apronNorth.position.set(0, 0, -14.2);
     runwayLinesGroup.add(apronNorth);
 
     const apronSouth = new THREE.Mesh(apronBoundGeo, lineYellowMat);
     apronSouth.rotation.x = -Math.PI / 2;
-    apronSouth.position.set(0, 0, 11.8);
+    apronSouth.position.set(0, 0, 14.2);
     runwayLinesGroup.add(apronSouth);
 
-    // 3. Centerline Driving Guides (Dashed yellow)
-    for (let x = -44; x <= 44; x += 3.8) {
+    // 3. Centerline Driving Guides (Dashed yellow for inner & outer transit corridors)
+    for (let x = -46; x <= 46; x += 3.8) {
       const dashGeo = new THREE.PlaneGeometry(2.2, 0.14);
-      const dashMeshN = new THREE.Mesh(dashGeo, lineYellowMat);
-      dashMeshN.rotation.x = -Math.PI / 2;
-      dashMeshN.position.set(x, 0, -9.5);
-      runwayLinesGroup.add(dashMeshN);
+      // North Inner Lane
+      const dashMeshNI = new THREE.Mesh(dashGeo, lineYellowMat);
+      dashMeshNI.rotation.x = -Math.PI / 2;
+      dashMeshNI.position.set(x, 0, -9.5);
+      runwayLinesGroup.add(dashMeshNI);
 
-      const dashMeshS = new THREE.Mesh(dashGeo, lineYellowMat);
-      dashMeshS.rotation.x = -Math.PI / 2;
-      dashMeshS.position.set(x, 0, 9.5);
-      runwayLinesGroup.add(dashMeshS);
+      // North Outer Lane
+      const dashMeshNO = new THREE.Mesh(dashGeo, lineYellowMat);
+      dashMeshNO.rotation.x = -Math.PI / 2;
+      dashMeshNO.position.set(x, 0, -13.5);
+      runwayLinesGroup.add(dashMeshNO);
+
+      // South Inner Lane
+      const dashMeshSI = new THREE.Mesh(dashGeo, lineYellowMat);
+      dashMeshSI.rotation.x = -Math.PI / 2;
+      dashMeshSI.position.set(x, 0, 9.5);
+      runwayLinesGroup.add(dashMeshSI);
+
+      // South Outer Lane
+      const dashMeshSO = new THREE.Mesh(dashGeo, lineYellowMat);
+      dashMeshSO.rotation.x = -Math.PI / 2;
+      dashMeshSO.position.set(x, 0, 13.5);
+      runwayLinesGroup.add(dashMeshSO);
     }
 
     // 4. 7-Segment Parking Bay Stalls on Clock Apron (42 Stalls)
@@ -723,8 +739,8 @@
         stallGroup.position.set(trans.pos.x, 0, trans.pos.z);
         stallGroup.rotation.y = trans.yaw;
 
-        const w = 2.3;
-        const l = 4.8;
+        const w = CONFIG.car.width + 0.35;
+        const l = CONFIG.car.length + 0.45;
         const thickness = 0.08;
 
         // Side boundary lines
@@ -771,7 +787,7 @@
     const rMat = new THREE.MeshBasicMaterial({ map: rTex, transparent: true });
     const rMesh = new THREE.Mesh(rGeo, rMat);
     rMesh.rotation.x = -Math.PI / 2;
-    rMesh.position.set(-32, 0.016, 0);
+    rMesh.position.set(-42, 0.016, 0);
     runwayLinesGroup.add(rMesh);
 
     scene.add(runwayLinesGroup);
@@ -819,25 +835,25 @@
     conesGroup = new THREE.Group();
 
     // Place cones along runway perimeter and staging junctions
-    const xCoords = [-40, -30, -20, -10, 10, 20, 30, 40];
+    const xCoords = [-46, -36, -26, -16, 0, 16, 26, 36, 46];
     xCoords.forEach(x => {
       const coneN = createTrafficConeMesh();
-      coneN.position.set(x, 0, -11.8);
+      coneN.position.set(x, 0, -14.2);
       conesGroup.add(coneN);
 
       const coneS = createTrafficConeMesh();
-      coneS.position.set(x, 0, 11.8);
+      coneS.position.set(x, 0, 14.2);
       conesGroup.add(coneS);
     });
 
     // Outer boundary cones
-    for (let z = -17; z <= 17; z += 8.5) {
+    for (let z = -18; z <= 18; z += 9) {
       const coneW = createTrafficConeMesh();
-      coneW.position.set(-42, 0, z);
+      coneW.position.set(-48, 0, z);
       conesGroup.add(coneW);
 
       const coneE = createTrafficConeMesh();
-      coneE.position.set(42, 0, z);
+      coneE.position.set(48, 0, z);
       conesGroup.add(coneE);
     }
 
@@ -857,10 +873,12 @@
 
     // Curved tire marks on turning radii
     const turns = [
-      { x: -22, z: -10, rot: 0.3 },
-      { x: -9, z: -10, rot: -0.4 },
-      { x: 9, z: 10, rot: 0.35 },
-      { x: 22, z: 10, rot: -0.3 },
+      { x: -33, z: -10, rot: 0.3 },
+      { x: -21.4, z: -10, rot: -0.4 },
+      { x: -5.8, z: -10, rot: 0.35 },
+      { x: 5.8, z: 10, rot: -0.3 },
+      { x: 21.4, z: 10, rot: 0.35 },
+      { x: 33, z: 10, rot: -0.3 },
       { x: 0, z: -10, rot: 0.5 },
       { x: 0, z: 10, rot: -0.5 },
     ];
@@ -891,9 +909,9 @@
 
     // Support 2 colons (for 6-digit mode) and 1 colon (for 4-digit mode)
     const colonConfigs = [
-      { id: 'mid', x: DIGIT_LAYOUT.colons4[0], z1: -2.5, z2: 2.5 },
-      { id: 'left', x: DIGIT_LAYOUT.colons6[0], z1: -2.5, z2: 2.5 },
-      { id: 'right', x: DIGIT_LAYOUT.colons6[1], z1: -2.5, z2: 2.5 },
+      { id: 'mid', x: DIGIT_LAYOUT.colons4[0], z1: -2.8, z2: 2.8 },
+      { id: 'left', x: DIGIT_LAYOUT.colons6[0], z1: -2.8, z2: 2.8 },
+      { id: 'right', x: DIGIT_LAYOUT.colons6[1], z1: -2.8, z2: 2.8 },
     ];
 
     colonConfigs.forEach(cfg => {
@@ -965,10 +983,10 @@
 
   function buildFloodlightTowers() {
     const towerPositions = [
-      { x: -44, z: -24 },
-      { x: 44, z: -24 },
-      { x: -44, z: 24 },
-      { x: 44, z: 24 },
+      { x: -50, z: -26 },
+      { x: 50, z: -26 },
+      { x: -50, z: 26 },
+      { x: 50, z: 26 },
     ];
 
     const towerMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.75, roughness: 0.25 });
@@ -1155,7 +1173,7 @@
     } else if (totalDigits === 4) {
       return new THREE.Vector3(DIGIT_LAYOUT.digits4[digitIdx] !== undefined ? DIGIT_LAYOUT.digits4[digitIdx] : 0, 0, 0);
     } else {
-      const spacing = 8.4;
+      const spacing = 11.6;
       const startX = -((totalDigits - 1) * spacing) / 2;
       return new THREE.Vector3(startX + digitIdx * spacing, 0, 0);
     }
@@ -1203,31 +1221,210 @@
 
   // --- Path Planning & Spline Trajectory Generator ---
 
-  function planDrivingPath(startPos, startYaw, endPos, endYaw) {
+  function planDrivingPath(startPos, startYaw, endPos, endYaw, lateralOffset = 0) {
     const waypoints = [];
 
-    // 1. Starting point
-    waypoints.push(startPos.clone());
+    // Always start at current position strictly on ground (y = 0)
+    const start = new THREE.Vector3(startPos.x, 0, startPos.z);
+    const end = new THREE.Vector3(endPos.x, 0, endPos.z);
+    waypoints.push(start);
 
-    // 2. Pull out forward along current heading
-    const forwardStart = new THREE.Vector3(Math.sin(startYaw), 0, Math.cos(startYaw)).multiplyScalar(3.5);
-    const pullOutPt = startPos.clone().add(forwardStart);
-    waypoints.push(pullOutPt);
+    const distDirect = start.distanceTo(end);
+    if (distDirect < 2.0) {
+      // Very short move: direct maneuver
+      const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+      waypoints.push(mid);
+      waypoints.push(end);
+      return new THREE.CatmullRomCurve3(waypoints, false, 'centripetal', 0.5);
+    }
 
-    // 3. Transit waypoint via central driving lane (Z = -9.5 or Z = +9.5)
-    const laneZ = startPos.z < 0 ? -9.5 : 9.5;
-    const midX = (startPos.x + endPos.x) / 2;
-    waypoints.push(new THREE.Vector3(midX, 0, laneZ));
+    // Transit corridor Z-levels
+    const NORTH_OUTER_Z = -13.5; // Eastbound / North Staging access
+    const NORTH_INNER_Z = -9.5;  // Westbound / Digit top access
+    const SOUTH_INNER_Z = 9.5;   // Eastbound / Digit bottom access
+    const SOUTH_OUTER_Z = 13.5;  // Westbound / South Staging access
 
-    // 4. Approach waypoint in front of target slot
-    const forwardEnd = new THREE.Vector3(Math.sin(endYaw), 0, Math.cos(endYaw)).multiplyScalar(-3.5);
-    const approachPt = endPos.clone().add(forwardEnd);
-    waypoints.push(approachPt);
+    // 1. Determine departure maneuver and departure corridor point (depX, depZ)
+    let depX = start.x;
+    let depZ = 0;
 
-    // 5. Final docking position
-    waypoints.push(endPos.clone());
+    if (start.z <= -15.5) {
+      // Starting in North Staging: pull forward south into North Outer Lane
+      depZ = NORTH_OUTER_Z;
+      waypoints.push(new THREE.Vector3(start.x, 0, -15.5));
+      waypoints.push(new THREE.Vector3(start.x, 0, depZ));
+    } else if (start.z >= 15.5) {
+      // Starting in South Staging: pull forward north into South Outer Lane
+      depZ = SOUTH_OUTER_Z;
+      waypoints.push(new THREE.Vector3(start.x, 0, 15.5));
+      waypoints.push(new THREE.Vector3(start.x, 0, depZ));
+    } else {
+      // Starting in Digit Segment
+      if (start.z <= -4.5) {
+        // Segment 'a' (top horizontal, facing +X)
+        depZ = NORTH_INNER_Z;
+        waypoints.push(new THREE.Vector3(start.x + 2.4, 0, start.z));
+        depX = start.x + 4.5;
+        waypoints.push(new THREE.Vector3(depX, 0, depZ));
+      } else if (start.z <= -1.8) {
+        // Segment 'b' or 'f' (top verticals, facing +Z)
+        depZ = NORTH_INNER_Z;
+        const sideOut = start.x >= 0 ? 1.6 : -1.6;
+        depX = start.x + sideOut;
+        waypoints.push(new THREE.Vector3(depX, 0, start.z - 2.0));
+        waypoints.push(new THREE.Vector3(depX, 0, depZ));
+      } else if (start.z >= 4.5) {
+        // Segment 'd' (bottom horizontal, facing +X)
+        depZ = SOUTH_INNER_Z;
+        waypoints.push(new THREE.Vector3(start.x + 2.4, 0, start.z));
+        depX = start.x + 4.5;
+        waypoints.push(new THREE.Vector3(depX, 0, depZ));
+      } else if (start.z >= 1.8) {
+        // Segment 'c' or 'e' (bottom verticals, facing +Z)
+        depZ = SOUTH_INNER_Z;
+        depX = start.x;
+        waypoints.push(new THREE.Vector3(start.x, 0, start.z + 2.2));
+        waypoints.push(new THREE.Vector3(depX, 0, depZ));
+      } else {
+        // Segment 'g' (middle horizontal, facing +X)
+        depX = start.x + 4.5;
+        waypoints.push(new THREE.Vector3(start.x + 2.6, 0, 0));
+        waypoints.push(new THREE.Vector3(depX, 0, 0));
+        depZ = (end.z < 0) ? NORTH_INNER_Z : SOUTH_INNER_Z;
+        waypoints.push(new THREE.Vector3(depX, 0, depZ));
+      }
+    }
 
-    return new THREE.CatmullRomCurve3(waypoints, false, 'centripetal', 0.5);
+    // 2. Determine arrival maneuver and arrival corridor point (arrX, arrZ)
+    let arrX = end.x;
+    let arrZ = 0;
+    const approachWaypoints = [];
+
+    if (end.z <= -15.5) {
+      // Target is North Staging (parks facing +Z)
+      arrZ = NORTH_OUTER_Z;
+      approachWaypoints.push(new THREE.Vector3(end.x, 0, arrZ));
+      approachWaypoints.push(new THREE.Vector3(end.x, 0, -15.5));
+      approachWaypoints.push(end);
+    } else if (end.z >= 15.5) {
+      // Target is South Staging (parks facing -Z)
+      arrZ = SOUTH_OUTER_Z;
+      approachWaypoints.push(new THREE.Vector3(end.x, 0, arrZ));
+      approachWaypoints.push(new THREE.Vector3(end.x, 0, 15.5));
+      approachWaypoints.push(end);
+    } else {
+      // Target is Digit Segment
+      if (end.z <= -4.5) {
+        // Segment 'a' (top horizontal, facing +X)
+        arrZ = NORTH_INNER_Z;
+        arrX = end.x - 4.5;
+        approachWaypoints.push(new THREE.Vector3(arrX, 0, arrZ));
+        approachWaypoints.push(new THREE.Vector3(end.x - 2.8, 0, end.z));
+        approachWaypoints.push(end);
+      } else if (end.z <= -1.8) {
+        // Segment 'b' or 'f' (top verticals, facing +Z)
+        arrZ = NORTH_INNER_Z;
+        arrX = end.x;
+        approachWaypoints.push(new THREE.Vector3(arrX, 0, arrZ));
+        approachWaypoints.push(new THREE.Vector3(arrX, 0, end.z - 2.4));
+        approachWaypoints.push(end);
+      } else if (end.z >= 4.5) {
+        // Segment 'd' (bottom horizontal, facing +X)
+        arrZ = SOUTH_INNER_Z;
+        arrX = end.x - 4.5;
+        approachWaypoints.push(new THREE.Vector3(arrX, 0, arrZ));
+        approachWaypoints.push(new THREE.Vector3(end.x - 2.8, 0, end.z));
+        approachWaypoints.push(end);
+      } else if (end.z >= 1.8) {
+        // Segment 'c' or 'e' (bottom verticals, facing +Z)
+        arrZ = SOUTH_INNER_Z;
+        arrX = end.x;
+        approachWaypoints.push(new THREE.Vector3(arrX, 0, arrZ));
+        approachWaypoints.push(new THREE.Vector3(arrX, 0, end.z + 2.4));
+        approachWaypoints.push(end);
+      } else {
+        // Segment 'g' (middle horizontal, facing +X)
+        arrZ = (start.z < 0) ? NORTH_INNER_Z : SOUTH_INNER_Z;
+        arrX = end.x - 4.5;
+        approachWaypoints.push(new THREE.Vector3(arrX, 0, arrZ));
+        approachWaypoints.push(new THREE.Vector3(arrX, 0, 0));
+        approachWaypoints.push(new THREE.Vector3(end.x - 2.6, 0, 0));
+        approachWaypoints.push(end);
+      }
+    }
+
+    // 3. Connect dep (depX, depZ) to arr (arrX, arrZ) along dedicated transit lanes
+    const isDepNorth = depZ < 0;
+    const isArrNorth = arrZ < 0;
+
+    if (isDepNorth === isArrNorth) {
+      // Both in same half (North or South)
+      const isNorth = isDepNorth;
+      const isEastbound = arrX >= depX;
+
+      let laneZ;
+      if (isNorth) {
+        laneZ = isEastbound ? (NORTH_OUTER_Z + lateralOffset) : (NORTH_INNER_Z + lateralOffset);
+      } else {
+        laneZ = isEastbound ? (SOUTH_INNER_Z + lateralOffset) : (SOUTH_OUTER_Z + lateralOffset);
+      }
+
+      if (Math.abs(arrX - depX) > 2.0) {
+        const midX = (depX + arrX) / 2;
+        waypoints.push(new THREE.Vector3(depX, 0, laneZ));
+        waypoints.push(new THREE.Vector3(midX, 0, laneZ));
+        waypoints.push(new THREE.Vector3(arrX, 0, laneZ));
+      } else {
+        waypoints.push(new THREE.Vector3(depX, 0, laneZ));
+      }
+    } else {
+      // Crossing between North and South halves
+      let bypassX;
+      if (depX < -24 || arrX < -24) {
+        bypassX = -44.0 + lateralOffset; // West Bypass
+      } else if (depX > 24 || arrX > 24) {
+        bypassX = 44.0 + lateralOffset;  // East Bypass
+      } else {
+        const candidateAisles = [-27.2, -13.6, 0.0, 13.6, 27.2];
+        const midX = (depX + arrX) / 2;
+        bypassX = candidateAisles.reduce((prev, curr) => Math.abs(curr - midX) < Math.abs(prev - midX) ? curr : prev) + lateralOffset;
+      }
+
+      const isDepEastbound = bypassX >= depX;
+      const depLaneZ = isDepNorth ? 
+        (isDepEastbound ? NORTH_OUTER_Z : NORTH_INNER_Z) : 
+        (isDepEastbound ? SOUTH_INNER_Z : SOUTH_OUTER_Z);
+
+      const isArrEastbound = arrX >= bypassX;
+      const arrLaneZ = isArrNorth ? 
+        (isArrEastbound ? NORTH_OUTER_Z : NORTH_INNER_Z) : 
+        (isArrEastbound ? SOUTH_INNER_Z : SOUTH_OUTER_Z);
+
+      waypoints.push(new THREE.Vector3(depX, 0, depLaneZ + lateralOffset));
+      waypoints.push(new THREE.Vector3(bypassX, 0, depLaneZ + lateralOffset));
+      waypoints.push(new THREE.Vector3(bypassX, 0, (depLaneZ + arrLaneZ) / 2));
+      waypoints.push(new THREE.Vector3(bypassX, 0, arrLaneZ + lateralOffset));
+      waypoints.push(new THREE.Vector3(arrX, 0, arrLaneZ + lateralOffset));
+    }
+
+    // 4. Append approach waypoints
+    approachWaypoints.forEach(pt => waypoints.push(pt));
+
+    // 5. Clean and filter waypoints
+    const cleanedWaypoints = [];
+    for (let i = 0; i < waypoints.length; i++) {
+      const pt = waypoints[i].clone();
+      pt.y = 0; // Strictly on the asphalt ground
+      if (cleanedWaypoints.length === 0 || cleanedWaypoints[cleanedWaypoints.length - 1].distanceTo(pt) > 0.4) {
+        cleanedWaypoints.push(pt);
+      }
+    }
+
+    if (cleanedWaypoints.length < 2) {
+      cleanedWaypoints.push(end.clone());
+    }
+
+    return new THREE.CatmullRomCurve3(cleanedWaypoints, false, 'centripetal', 0.5);
   }
 
   // --- Clock State Transition & Car Assignment Engine ---
@@ -1251,6 +1448,9 @@
       });
     });
 
+    let staggerCount = 0;
+    const STAGGER_INTERVAL = 0.16; // 160ms stagger per vehicle
+
     // 1. Determine segments to deactivate
     const segmentsToDeactivate = [];
     activeAssignments.forEach((car, key) => {
@@ -1264,10 +1464,14 @@
       const car = activeAssignments.get(key);
       activeAssignments.delete(key);
 
-      const emptyBay = stagingBays.find(b => b.occupiedBy === null);
-      if (emptyBay && car) {
+      const availableBays = stagingBays.filter(b => b.occupiedBy === null);
+      if (availableBays.length > 0 && car) {
+        // Pick closest available bay to minimize cross traffic
+        availableBays.sort((a, b) => car.mesh.position.distanceTo(a.pos) - car.mesh.position.distanceTo(b.pos));
+        const emptyBay = availableBays[0];
         emptyBay.occupiedBy = car;
-        dispatchCar(car, emptyBay.pos, emptyBay.yaw, { type: 'staging', id: emptyBay.id });
+        dispatchCar(car, emptyBay.pos, emptyBay.yaw, { type: 'staging', id: emptyBay.id }, staggerCount * STAGGER_INTERVAL);
+        staggerCount++;
       }
     });
 
@@ -1276,7 +1480,8 @@
       if (activeAssignments.has(key)) {
         const car = activeAssignments.get(key);
         if (car && car.targetPos && car.targetPos.distanceTo(item.transform.pos) > 0.4) {
-          dispatchCar(car, item.transform.pos, item.transform.yaw, { type: 'segment', key: item.key });
+          dispatchCar(car, item.transform.pos, item.transform.yaw, { type: 'segment', key: item.key }, staggerCount * STAGGER_INTERVAL);
+          staggerCount++;
         }
       }
     });
@@ -1290,9 +1495,14 @@
     });
 
     segmentsToActivate.forEach(item => {
-      let candidateCar = carFleet.find(c => c.state === 'idle' && c.currentSlot && c.currentSlot.type === 'staging');
+      const availableStagingCars = carFleet.filter(c => c.state === 'idle' && c.currentSlot && c.currentSlot.type === 'staging');
+      let candidateCar = null;
 
-      if (!candidateCar) {
+      if (availableStagingCars.length > 0) {
+        // Pick closest staging car to target slot
+        availableStagingCars.sort((a, b) => a.mesh.position.distanceTo(item.transform.pos) - b.mesh.position.distanceTo(item.transform.pos));
+        candidateCar = availableStagingCars[0];
+      } else {
         candidateCar = carFleet.find(c => c.state === 'idle' && ![...activeAssignments.values()].includes(c));
       }
 
@@ -1303,7 +1513,8 @@
         }
 
         activeAssignments.set(item.key, candidateCar);
-        dispatchCar(candidateCar, item.transform.pos, item.transform.yaw, { type: 'segment', key: item.key });
+        dispatchCar(candidateCar, item.transform.pos, item.transform.yaw, { type: 'segment', key: item.key }, staggerCount * STAGGER_INTERVAL);
+        staggerCount++;
       }
     });
 
@@ -1311,20 +1522,22 @@
     updateHUDStats();
   }
 
-  function dispatchCar(car, targetPos, targetYaw, targetSlotInfo) {
+  function dispatchCar(car, targetPos, targetYaw, targetSlotInfo, startDelay = 0) {
     const startPos = car.mesh.position.clone();
     const startYaw = car.mesh.rotation.y;
 
-    car.pathCurve = planDrivingPath(startPos, startYaw, targetPos, targetYaw);
+    const lateralOffset = (((car.id * 7) % 5) - 2) * 0.22;
+    car.pathCurve = planDrivingPath(startPos, startYaw, targetPos, targetYaw, lateralOffset);
     car.targetSlot = targetSlotInfo;
     car.targetPos = targetPos.clone();
     car.targetYaw = targetYaw;
     car.transitProgress = 0;
-    car.transitDuration = 2.4 + Math.random() * 0.6;
-    car.state = 'driving';
+    car.transitDuration = 2.6 + Math.random() * 0.4;
+    car.startDelay = startDelay;
+    car.state = startDelay > 0 ? 'waiting' : 'driving';
     car.prevPos.copy(startPos);
 
-    if (state.soundEnabled) playCarSound('rev');
+    if (state.soundEnabled && startDelay === 0) playCarSound('rev');
     car.headlightMat.emissiveIntensity = state.lightingMode === 'night' ? 3.0 : 1.6;
     car.taillightMat.emissiveIntensity = 1.8;
 
@@ -1429,20 +1642,50 @@
 
   function updateCarFleet(delta, elapsedTime) {
     carFleet.forEach(car => {
+      if (car.state === 'waiting') {
+        car.startDelay -= delta;
+        if (car.startDelay <= 0) {
+          car.state = 'driving';
+          if (state.soundEnabled) playCarSound('rev');
+        }
+        const idlePulse = Math.sin(elapsedTime * 4 + car.idleSeed) * 0.003;
+        car.suspension.position.y = CONFIG.car.wheelRadius + idlePulse;
+        return;
+      }
+
       if (car.state === 'driving' && car.pathCurve) {
-        car.transitProgress += delta / car.transitDuration;
+        // Distance-keeping / following regulation between driving vehicles
+        let speedMult = 1.0;
+        for (let other of carFleet) {
+          if (other !== car && other.state === 'driving') {
+            const dist = car.mesh.position.distanceTo(other.mesh.position);
+            if (dist < 5.0) {
+              const toOther = new THREE.Vector3().subVectors(other.mesh.position, car.mesh.position);
+              const heading = new THREE.Vector3(Math.sin(car.mesh.rotation.y), 0, Math.cos(car.mesh.rotation.y));
+              const dot = toOther.dot(heading);
+              if (dot > 0.4) {
+                speedMult = Math.min(speedMult, Math.max(0.2, (dist - 2.5) / 2.5));
+              }
+            }
+          }
+        }
+
+        car.transitProgress += (delta / car.transitDuration) * speedMult;
         const u = Math.min(1.0, car.transitProgress);
 
         const easedU = THREE.MathUtils.smoothstep(u, 0, 1);
 
         const currentPos = car.pathCurve.getPointAt(easedU);
+        currentPos.y = 0; // Strictly on asphalt ground
         const tangent = car.pathCurve.getTangentAt(easedU);
 
         car.mesh.position.copy(currentPos);
 
         const targetYaw = Math.atan2(tangent.x, tangent.z);
-        const diffYaw = targetYaw - car.mesh.rotation.y;
-        car.mesh.rotation.y += Math.sin(diffYaw) * 0.25;
+        let diffYaw = targetYaw - car.mesh.rotation.y;
+        while (diffYaw > Math.PI) diffYaw -= Math.PI * 2;
+        while (diffYaw < -Math.PI) diffYaw += Math.PI * 2;
+        car.mesh.rotation.y += THREE.MathUtils.clamp(diffYaw * 0.35, -0.4, 0.4);
 
         // Front Wheel Steering Angle
         const steerTarget = THREE.MathUtils.clamp(diffYaw * 3.5, -0.6, 0.6);
@@ -1452,7 +1695,7 @@
 
         // Wheel Rolling Rotation based on distance traveled
         const distTraveled = currentPos.distanceTo(car.prevPos);
-        car.speed = distTraveled / delta;
+        car.speed = distTraveled / (delta || 0.016);
         car.wheelRollAngle += distTraveled / CONFIG.car.wheelRadius;
         car.wheels.forEach(w => {
           w.rotation.x = car.wheelRollAngle;
@@ -1480,6 +1723,7 @@
           car.settleTimer = 0.45;
           car.currentSlot = car.targetSlot;
           car.mesh.position.copy(car.targetPos);
+          car.mesh.position.y = 0;
           car.mesh.rotation.y = car.targetYaw;
           car.steerPivotFL.rotation.y = 0;
           car.steerPivotFR.rotation.y = 0;
@@ -1567,7 +1811,7 @@
       if (aspect < 0.65) {
         // Very tall/narrow mobile screen in portrait (e.g. 9:19.5, 9:20)
         return {
-          pos: new THREE.Vector3(0, 75, 82),
+          pos: new THREE.Vector3(0, 85, 95),
           target: new THREE.Vector3(0, 0, 0),
           up: new THREE.Vector3(0, 1, 0),
           fov: 56,
@@ -1575,7 +1819,7 @@
       } else if (aspect < 0.95) {
         // Standard phone portrait / small tablet
         return {
-          pos: new THREE.Vector3(0, 70, 75),
+          pos: new THREE.Vector3(0, 78, 85),
           target: new THREE.Vector3(0, 0, 0),
           up: new THREE.Vector3(0, 1, 0),
           fov: 52,
@@ -1583,7 +1827,7 @@
       } else if (aspect < 1.2) {
         // iPad portrait / foldable / square screen
         return {
-          pos: new THREE.Vector3(0, 58, 62),
+          pos: new THREE.Vector3(0, 64, 68),
           target: new THREE.Vector3(0, 0, 0),
           up: new THREE.Vector3(0, 1, 0),
           fov: 50,
@@ -1591,7 +1835,7 @@
       } else {
         // Standard desktop / widescreen landscape
         return {
-          pos: new THREE.Vector3(0, 48, 46),
+          pos: new THREE.Vector3(0, 54, 52),
           target: new THREE.Vector3(0, 0, 0),
           up: new THREE.Vector3(0, 1, 0),
           fov: 48,
@@ -1600,28 +1844,28 @@
     } else if (presetName === 'aerial') {
       if (aspect < 0.65) {
         return {
-          pos: new THREE.Vector3(0, 125, 24),
+          pos: new THREE.Vector3(0, 140, 26),
           target: new THREE.Vector3(0, 0, 0),
           up: new THREE.Vector3(0, 1, 0),
           fov: 54,
         };
       } else if (aspect < 0.95) {
         return {
-          pos: new THREE.Vector3(0, 105, 20),
+          pos: new THREE.Vector3(0, 118, 22),
           target: new THREE.Vector3(0, 0, 0),
           up: new THREE.Vector3(0, 1, 0),
           fov: 50,
         };
       } else if (aspect < 1.2) {
         return {
-          pos: new THREE.Vector3(0, 88, 18),
+          pos: new THREE.Vector3(0, 98, 18),
           target: new THREE.Vector3(0, 0, 0),
           up: new THREE.Vector3(0, 1, 0),
           fov: 48,
         };
       } else {
         return {
-          pos: new THREE.Vector3(0, 72, 16),
+          pos: new THREE.Vector3(0, 80, 16),
           target: new THREE.Vector3(0, 0, 0),
           up: new THREE.Vector3(0, 1, 0),
           fov: 46,
