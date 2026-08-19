@@ -11,39 +11,39 @@
   // --- Configuration & Constants ---
   const CONFIG = {
     car: {
-      length: 4.2,
-      width: 1.9,
+      length: 4.3,
+      width: 2.0,
       height: 1.25,
-      wheelRadius: 0.36,
-      wheelWidth: 0.22,
-      wheelbase: 2.6,
-      trackWidth: 1.55,
-      color: '#f8fafc',
+      wheelRadius: 0.38,
+      wheelWidth: 0.24,
+      wheelbase: 2.65,
+      trackWidth: 1.62,
+      color: '#ffffff',
     },
     digit: {
-      horizOffset: 4.4,  // Distance of top/bottom segments from center
-      vertOffset: 2.2,   // Distance of side segments from vertical center
-      sideOffset: 2.5,   // Distance of side segments from horizontal center
+      horizOffset: 4.8,  // Distance of top/bottom segments from center
+      vertOffset: 2.5,   // Distance of side segments from vertical center
+      sideOffset: 2.6,   // Distance of side segments from horizontal center
     },
     staging: {
-      northZ: -15.5,
-      southZ: 15.5,
+      northZ: -17.5,
+      southZ: 17.5,
       baysPerRow: 26,
-      startX: -35,
-      endX: 35,
+      startX: -38,
+      endX: 38,
     },
     camera: {
-      aerial: { pos: new THREE.Vector3(0, 85, 0.001), target: new THREE.Vector3(0, 0, 0), up: new THREE.Vector3(0, 0, -1) },
-      perspective: { pos: new THREE.Vector3(0, 44, 54), target: new THREE.Vector3(0, 0, 0), up: new THREE.Vector3(0, 1, 0) },
+      perspective: { pos: new THREE.Vector3(0, 48, 46), target: new THREE.Vector3(0, 0, 0), up: new THREE.Vector3(0, 1, 0) },
+      aerial: { pos: new THREE.Vector3(0, 72, 16), target: new THREE.Vector3(0, 0, 0), up: new THREE.Vector3(0, 1, 0) },
     }
   };
 
   const DIGIT_LAYOUT = {
     // 6-digit mode: [H1, H2] : [M1, M2] : [S1, S2]
-    digits6: [-20.5, -13.0, -3.75, 3.75, 13.0, 20.5],
-    colons6: [-8.375, 8.375],
+    digits6: [-22.5, -14.2, -4.2, 4.2, 14.2, 22.5],
+    colons6: [-9.2, 9.2],
     // 4-digit mode: [H1, H2] : [M1, M2]
-    digits4: [-12.5, -5.0, 5.0, 12.5],
+    digits4: [-13.5, -5.0, 5.0, 13.5],
     colons4: [0],
   };
 
@@ -82,12 +82,12 @@
 
   // --- App State ---
   const state = {
-    clockMode: 'live',      // 'live', 'fast', 'manual', 'word'
+    clockMode: 'live',          // 'live', 'fast', 'manual', 'word'
     timeFormat24h: true,
     showSeconds: true,
-    lightingMode: 'day',    // 'day', 'sunset', 'night'
-    cameraMode: 'aerial',   // 'aerial', 'perspective', 'follow', 'orbit'
-    fastSpeed: 1,           // 1, 5, 10, 'sec'
+    lightingMode: 'day',        // 'day', 'sunset', 'night'
+    cameraMode: 'perspective',   // 'perspective', 'aerial', 'follow', 'orbit'
+    fastSpeed: 1,               // 1, 5, 10, 'sec'
     customWord: '',
     manualHour: 18,
     manualMin: 57,
@@ -144,15 +144,15 @@
     canvas.height = 1024;
     const ctx = canvas.getContext('2d');
 
-    // Base asphalt tone
-    ctx.fillStyle = '#1b202a';
+    // Deep dark asphalt base tone for high contrast with white cars
+    ctx.fillStyle = '#161b24';
     ctx.fillRect(0, 0, 1024, 1024);
 
     // Fine aggregate grain noise
     const imgData = ctx.getImageData(0, 0, 1024, 1024);
     const data = imgData.data;
     for (let i = 0; i < data.length; i += 4) {
-      const noise = (Math.random() - 0.5) * 38;
+      const noise = (Math.random() - 0.5) * 32;
       data[i] = Math.min(255, Math.max(0, data[i] + noise));
       data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + noise));
       data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + noise));
@@ -160,8 +160,8 @@
     ctx.putImageData(imgData, 0, 0);
 
     // Dark aggregate gravel specks
-    ctx.fillStyle = 'rgba(10, 14, 20, 0.2)';
-    for (let i = 0; i < 4500; i++) {
+    ctx.fillStyle = 'rgba(8, 12, 18, 0.25)';
+    for (let i = 0; i < 4000; i++) {
       const rx = Math.random() * 1024;
       const ry = Math.random() * 1024;
       const r = Math.random() * 2 + 0.5;
@@ -173,28 +173,8 @@
     const texture = new THREE.CanvasTexture(canvas);
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(14, 14);
+    texture.repeat.set(16, 16);
     return texture;
-  }
-
-  function createCarShadowTexture() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 256;
-    const ctx = canvas.getContext('2d');
-
-    const grad = ctx.createRadialGradient(128, 128, 40, 128, 128, 120);
-    grad.addColorStop(0, 'rgba(0, 0, 0, 0.8)');
-    grad.addColorStop(0.5, 'rgba(0, 0, 0, 0.45)');
-    grad.addColorStop(0.8, 'rgba(0, 0, 0, 0.18)');
-    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.fillRect(16, 24, 224, 208);
-    ctx.fill();
-
-    return new THREE.CanvasTexture(canvas);
   }
 
   function createLicensePlateTexture(text) {
@@ -207,18 +187,52 @@
     ctx.fillRect(0, 0, 128, 32);
 
     ctx.strokeStyle = '#0284c7';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(2, 2, 124, 28);
+    ctx.lineWidth = 3;
+    ctx.strokeRect(1, 1, 126, 30);
 
-    // Blue bar on left
+    // Blue EU/Regional bar on left
     ctx.fillStyle = '#0284c7';
-    ctx.fillRect(2, 2, 22, 28);
+    ctx.fillRect(1, 1, 24, 30);
 
+    // Yellow star dot
+    ctx.fillStyle = '#facc15';
+    ctx.beginPath();
+    ctx.arc(12, 16, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Plate text
     ctx.fillStyle = '#0f172a';
     ctx.font = 'bold 15px monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text || 'AGY 26', 74, 17);
+    ctx.fillText(text || 'AGY-26', 76, 17);
+
+    return new THREE.CanvasTexture(canvas);
+  }
+
+  function createGrillTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#0f141c';
+    ctx.fillRect(0, 0, 256, 64);
+
+    // Honeycomb / diamond mesh pattern
+    ctx.strokeStyle = '#273142';
+    ctx.lineWidth = 2;
+    for (let x = 0; x <= 256; x += 12) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x + 8, 64);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(x, 64);
+      ctx.lineTo(x + 8, 0);
+      ctx.stroke();
+    }
 
     return new THREE.CanvasTexture(canvas);
   }
@@ -228,92 +242,104 @@
   const carMaterials = {
     body: new THREE.MeshStandardMaterial({
       color: new THREE.Color(CONFIG.car.color),
-      roughness: 0.18,
-      metalness: 0.25,
+      roughness: 0.12,
+      metalness: 0.15,
     }),
     carbon: new THREE.MeshStandardMaterial({
-      color: 0x181c24,
-      roughness: 0.5,
-      metalness: 0.2,
+      color: 0x14171f,
+      roughness: 0.55,
+      metalness: 0.25,
     }),
     glass: new THREE.MeshStandardMaterial({
-      color: 0x0a101d,
-      roughness: 0.05,
-      metalness: 0.9,
+      color: 0x090d16,
+      roughness: 0.04,
+      metalness: 0.88,
       transparent: true,
-      opacity: 0.88,
+      opacity: 0.92,
     }),
     tire: new THREE.MeshStandardMaterial({
-      color: 0x14161a,
+      color: 0x121418,
       roughness: 0.85,
       metalness: 0.05,
     }),
     rim: new THREE.MeshStandardMaterial({
-      color: 0xd1d5db,
-      roughness: 0.2,
-      metalness: 0.85,
+      color: 0xe2e8f0,
+      roughness: 0.16,
+      metalness: 0.9,
     }),
     brakeCaliper: new THREE.MeshStandardMaterial({
-      color: 0xef4444,
-      roughness: 0.3,
-      metalness: 0.5,
+      color: 0xdc2626,
+      roughness: 0.22,
+      metalness: 0.45,
     }),
     headlightLens: new THREE.MeshStandardMaterial({
       color: 0xffffff,
       emissive: 0xffffff,
-      emissiveIntensity: 0.9,
-      roughness: 0.1,
+      emissiveIntensity: 1.2,
+      roughness: 0.05,
     }),
     taillightLens: new THREE.MeshStandardMaterial({
       color: 0xff1e27,
-      emissive: 0xff0011,
-      emissiveIntensity: 0.8,
-      roughness: 0.2,
+      emissive: 0xff0015,
+      emissiveIntensity: 1.0,
+      roughness: 0.15,
     }),
     chrome: new THREE.MeshStandardMaterial({
-      color: 0xffffff,
+      color: 0xf8fafc,
       roughness: 0.1,
       metalness: 0.95,
     }),
-    shadow: new THREE.MeshBasicMaterial({
-      map: createCarShadowTexture(),
-      transparent: true,
-      depthWrite: false,
-      opacity: 0.75,
+    grill: new THREE.MeshStandardMaterial({
+      map: createGrillTexture(),
+      roughness: 0.65,
+      metalness: 0.3,
+    }),
+    badge: new THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      roughness: 0.2,
+      metalness: 0.8,
     }),
   };
 
   function buildWheelMesh() {
     const wheelGroup = new THREE.Group();
 
-    // Tire outer geometry
-    const tireGeo = new THREE.CylinderGeometry(CONFIG.car.wheelRadius, CONFIG.car.wheelRadius, CONFIG.car.wheelWidth, 24);
+    // 1. Tire outer rubber
+    const tireGeo = new THREE.CylinderGeometry(CONFIG.car.wheelRadius, CONFIG.car.wheelRadius, CONFIG.car.wheelWidth, 28);
     tireGeo.rotateZ(Math.PI / 2);
     const tireMesh = new THREE.Mesh(tireGeo, carMaterials.tire);
     tireMesh.castShadow = true;
+    tireMesh.receiveShadow = true;
     wheelGroup.add(tireMesh);
 
-    // Rim geometry
-    const rimGeo = new THREE.CylinderGeometry(CONFIG.car.wheelRadius * 0.7, CONFIG.car.wheelRadius * 0.7, CONFIG.car.wheelWidth * 1.02, 16);
+    // 2. Alloy Rim Outer Barrel & Lip
+    const rimGeo = new THREE.CylinderGeometry(CONFIG.car.wheelRadius * 0.72, CONFIG.car.wheelRadius * 0.72, CONFIG.car.wheelWidth * 1.02, 20);
     rimGeo.rotateZ(Math.PI / 2);
     const rimMesh = new THREE.Mesh(rimGeo, carMaterials.rim);
+    rimMesh.castShadow = true;
     wheelGroup.add(rimMesh);
 
-    // 5-Spoke Wheel Face Details
-    const spokeGeo = new THREE.BoxGeometry(CONFIG.car.wheelWidth * 1.04, CONFIG.car.wheelRadius * 1.25, 0.05);
+    // 3. 5-Spoke Silver Alloy Face
+    const spokeGeo = new THREE.BoxGeometry(CONFIG.car.wheelWidth * 1.04, CONFIG.car.wheelRadius * 1.28, 0.06);
     for (let i = 0; i < 5; i++) {
       const spoke = new THREE.Mesh(spokeGeo, carMaterials.rim);
       spoke.rotation.x = (i * Math.PI * 2) / 5;
       wheelGroup.add(spoke);
     }
 
-    // Brake Disc Rotor & Red Caliper
-    const rotorGeo = new THREE.CylinderGeometry(CONFIG.car.wheelRadius * 0.52, CONFIG.car.wheelRadius * 0.52, 0.04, 16);
+    // 4. Center Hub Cap
+    const hubGeo = new THREE.CylinderGeometry(0.08, 0.08, CONFIG.car.wheelWidth * 1.08, 16);
+    hubGeo.rotateZ(Math.PI / 2);
+    const hub = new THREE.Mesh(hubGeo, carMaterials.chrome);
+    wheelGroup.add(hub);
+
+    // 5. Brake Disc Rotor & Red Brembo Caliper
+    const rotorGeo = new THREE.CylinderGeometry(CONFIG.car.wheelRadius * 0.54, CONFIG.car.wheelRadius * 0.54, 0.03, 16);
     rotorGeo.rotateZ(Math.PI / 2);
     const rotor = new THREE.Mesh(rotorGeo, carMaterials.chrome);
     wheelGroup.add(rotor);
 
-    const caliperGeo = new THREE.BoxGeometry(0.06, 0.14, 0.12);
+    const caliperGeo = new THREE.BoxGeometry(0.07, 0.16, 0.13);
     const caliper = new THREE.Mesh(caliperGeo, carMaterials.brakeCaliper);
     caliper.position.set(0, CONFIG.car.wheelRadius * 0.32, 0.1);
     wheelGroup.add(caliper);
@@ -330,104 +356,218 @@
     suspensionGroup.position.y = CONFIG.car.wheelRadius;
     carRoot.add(suspensionGroup);
 
-    // 1. Lower Body / Sculpted Chassis
-    const lowerBodyGeo = new THREE.BoxGeometry(CONFIG.car.width, 0.55, CONFIG.car.length);
     const bodyMat = carMaterials.body.clone();
+
+    // 1. Lower Main Body / Sculpted Chassis
+    const lowerBodyGeo = new THREE.BoxGeometry(CONFIG.car.width, 0.44, CONFIG.car.length);
     const lowerBodyMesh = new THREE.Mesh(lowerBodyGeo, bodyMat);
-    lowerBodyMesh.position.y = 0.28;
+    lowerBodyMesh.position.y = 0.22;
     lowerBodyMesh.castShadow = true;
     lowerBodyMesh.receiveShadow = true;
     suspensionGroup.add(lowerBodyMesh);
 
-    // Front Bumper / Splitter & Rear Diffuser
-    const splitterGeo = new THREE.BoxGeometry(CONFIG.car.width * 0.98, 0.12, 0.4);
+    // Front Hood section (slopes forward)
+    const hoodGeo = new THREE.BoxGeometry(CONFIG.car.width * 0.92, 0.14, CONFIG.car.length * 0.32);
+    const hoodMesh = new THREE.Mesh(hoodGeo, bodyMat);
+    hoodMesh.position.set(0, 0.40, 1.35);
+    hoodMesh.castShadow = true;
+    hoodMesh.receiveShadow = true;
+    suspensionGroup.add(hoodMesh);
+
+    // Rear Trunk Deck section
+    const trunkGeo = new THREE.BoxGeometry(CONFIG.car.width * 0.9, 0.14, CONFIG.car.length * 0.22);
+    const trunkMesh = new THREE.Mesh(trunkGeo, bodyMat);
+    trunkMesh.position.set(0, 0.40, -1.45);
+    trunkMesh.castShadow = true;
+    trunkMesh.receiveShadow = true;
+    suspensionGroup.add(trunkMesh);
+
+    // Front Splitter / Carbon Bumper
+    const splitterGeo = new THREE.BoxGeometry(CONFIG.car.width * 0.98, 0.08, 0.36);
     const frontSplitter = new THREE.Mesh(splitterGeo, carMaterials.carbon);
-    frontSplitter.position.set(0, 0.08, CONFIG.car.length / 2 + 0.12);
+    frontSplitter.position.set(0, 0.05, CONFIG.car.length / 2 + 0.1);
     frontSplitter.castShadow = true;
+    frontSplitter.receiveShadow = true;
     suspensionGroup.add(frontSplitter);
 
-    const rearDiffuser = new THREE.Mesh(splitterGeo, carMaterials.carbon);
-    rearDiffuser.position.set(0, 0.12, -CONFIG.car.length / 2 - 0.12);
+    // Front Grill (Dark Hexagonal Mesh with Chrome Trim)
+    const grillGeo = new THREE.BoxGeometry(CONFIG.car.width * 0.58, 0.18, 0.08);
+    const frontGrill = new THREE.Mesh(grillGeo, carMaterials.grill);
+    frontGrill.position.set(0, 0.26, CONFIG.car.length / 2 + 0.02);
+    frontGrill.castShadow = true;
+    suspensionGroup.add(frontGrill);
+
+    // Front Hood Badge / Logo
+    const badgeGeo = new THREE.BoxGeometry(0.18, 0.06, 0.04);
+    const badgeMesh = new THREE.Mesh(badgeGeo, carMaterials.badge);
+    badgeMesh.position.set(0, 0.42, CONFIG.car.length / 2 + 0.01);
+    suspensionGroup.add(badgeMesh);
+
+    // Rear Diffuser (Carbon fiber with aero fins)
+    const diffuserGeo = new THREE.BoxGeometry(CONFIG.car.width * 0.96, 0.14, 0.36);
+    const rearDiffuser = new THREE.Mesh(diffuserGeo, carMaterials.carbon);
+    rearDiffuser.position.set(0, 0.09, -CONFIG.car.length / 2 - 0.1);
     rearDiffuser.castShadow = true;
+    rearDiffuser.receiveShadow = true;
     suspensionGroup.add(rearDiffuser);
 
-    // 2. Cabin / Greenhouse (Windshield, Roof, Windows)
-    const cabinGeo = new THREE.BoxGeometry(CONFIG.car.width * 0.86, 0.55, CONFIG.car.length * 0.55);
+    // Side Skirts (Carbon side sills)
+    [-CONFIG.car.width / 2, CONFIG.car.width / 2].forEach(x => {
+      const skirtGeo = new THREE.BoxGeometry(0.08, 0.08, CONFIG.car.length * 0.7);
+      const skirt = new THREE.Mesh(skirtGeo, carMaterials.carbon);
+      skirt.position.set(x, 0.08, 0);
+      skirt.castShadow = true;
+      suspensionGroup.add(skirt);
+    });
+
+    // 2. Cabin / Greenhouse (Dark Tinted Glass & Body-Colored Roof & Pillars)
+    const cabinGeo = new THREE.BoxGeometry(CONFIG.car.width * 0.86, 0.52, CONFIG.car.length * 0.54);
     const cabinMesh = new THREE.Mesh(cabinGeo, carMaterials.glass);
-    cabinMesh.position.set(0, 0.72, -0.15);
+    cabinMesh.position.set(0, 0.66, -0.12);
     cabinMesh.castShadow = true;
+    cabinMesh.receiveShadow = true;
     suspensionGroup.add(cabinMesh);
 
-    // Roof panel (car body color)
-    const roofGeo = new THREE.BoxGeometry(CONFIG.car.width * 0.82, 0.06, CONFIG.car.length * 0.42);
+    // Sloped Front Windshield
+    const windshieldGeo = new THREE.BoxGeometry(CONFIG.car.width * 0.84, 0.05, 0.85);
+    const windshieldMesh = new THREE.Mesh(windshieldGeo, carMaterials.glass);
+    windshieldMesh.rotation.x = Math.PI * 0.16;
+    windshieldMesh.position.set(0, 0.66, 0.82);
+    windshieldMesh.castShadow = true;
+    suspensionGroup.add(windshieldMesh);
+
+    // Sloped Rear Window
+    const rearWindowGeo = new THREE.BoxGeometry(CONFIG.car.width * 0.84, 0.05, 0.75);
+    const rearWindowMesh = new THREE.Mesh(rearWindowGeo, carMaterials.glass);
+    rearWindowMesh.rotation.x = -Math.PI * 0.13;
+    rearWindowMesh.position.set(0, 0.66, -1.02);
+    rearWindowMesh.castShadow = true;
+    suspensionGroup.add(rearWindowMesh);
+
+    // Gloss White Roof Panel
+    const roofGeo = new THREE.BoxGeometry(CONFIG.car.width * 0.82, 0.05, CONFIG.car.length * 0.38);
     const roofMesh = new THREE.Mesh(roofGeo, bodyMat);
-    roofMesh.position.set(0, 1.0, -0.2);
+    roofMesh.position.set(0, 0.92, -0.15);
     roofMesh.castShadow = true;
+    roofMesh.receiveShadow = true;
     suspensionGroup.add(roofMesh);
 
-    // 3. Headlights (Front LED Strips)
-    const headlightGeo = new THREE.BoxGeometry(0.42, 0.1, 0.1);
+    // Body-Colored A-Pillars (Left & Right)
+    [-CONFIG.car.width * 0.42, CONFIG.car.width * 0.42].forEach(x => {
+      const aPillarGeo = new THREE.BoxGeometry(0.06, 0.06, 0.88);
+      const aPillar = new THREE.Mesh(aPillarGeo, bodyMat);
+      aPillar.rotation.x = Math.PI * 0.16;
+      aPillar.position.set(x, 0.66, 0.82);
+      aPillar.castShadow = true;
+      suspensionGroup.add(aPillar);
+    });
+
+    // Body-Colored C-Pillars (Left & Right)
+    [-CONFIG.car.width * 0.42, CONFIG.car.width * 0.42].forEach(x => {
+      const cPillarGeo = new THREE.BoxGeometry(0.06, 0.06, 0.78);
+      const cPillar = new THREE.Mesh(cPillarGeo, bodyMat);
+      cPillar.rotation.x = -Math.PI * 0.13;
+      cPillar.position.set(x, 0.66, -1.02);
+      cPillar.castShadow = true;
+      suspensionGroup.add(cPillar);
+    });
+
+    // Dark Matte B-Pillars
+    [-CONFIG.car.width * 0.435, CONFIG.car.width * 0.435].forEach(x => {
+      const bPillarGeo = new THREE.BoxGeometry(0.04, 0.46, 0.08);
+      const bPillar = new THREE.Mesh(bPillarGeo, carMaterials.carbon);
+      bPillar.position.set(x, 0.66, -0.15);
+      suspensionGroup.add(bPillar);
+    });
+
+    // 3. Headlights & LED DRLs
     const headlightMat = carMaterials.headlightLens.clone();
+    const headlightGeo = new THREE.BoxGeometry(0.44, 0.12, 0.12);
 
     const headlightL = new THREE.Mesh(headlightGeo, headlightMat);
-    headlightL.position.set(-CONFIG.car.width * 0.36, 0.35, CONFIG.car.length / 2 + 0.01);
+    headlightL.position.set(-CONFIG.car.width * 0.36, 0.32, CONFIG.car.length / 2 + 0.02);
     suspensionGroup.add(headlightL);
 
     const headlightR = new THREE.Mesh(headlightGeo, headlightMat);
-    headlightR.position.set(CONFIG.car.width * 0.36, 0.35, CONFIG.car.length / 2 + 0.01);
+    headlightR.position.set(CONFIG.car.width * 0.36, 0.32, CONFIG.car.length / 2 + 0.02);
     suspensionGroup.add(headlightR);
 
+    // Sharp DRL Eyebrow Strips
+    const drlGeo = new THREE.BoxGeometry(0.46, 0.03, 0.04);
+    const drlL = new THREE.Mesh(drlGeo, headlightMat);
+    drlL.position.set(-CONFIG.car.width * 0.36, 0.38, CONFIG.car.length / 2 + 0.03);
+    suspensionGroup.add(drlL);
+
+    const drlR = new THREE.Mesh(drlGeo, headlightMat);
+    drlR.position.set(CONFIG.car.width * 0.36, 0.38, CONFIG.car.length / 2 + 0.03);
+    suspensionGroup.add(drlR);
+
     // Night Mode Spotlights
-    const spotL = new THREE.SpotLight(0xfffaed, 0, 30, Math.PI / 5.5, 0.35, 1.2);
+    const spotL = new THREE.SpotLight(0xfffaed, 0, 32, Math.PI / 5.5, 0.35, 1.2);
     spotL.position.set(-CONFIG.car.width * 0.36, 0.35, CONFIG.car.length / 2 + 0.2);
     const spotTargetL = new THREE.Object3D();
-    spotTargetL.position.set(-CONFIG.car.width * 0.36, 0, CONFIG.car.length / 2 + 14);
+    spotTargetL.position.set(-CONFIG.car.width * 0.36, 0, CONFIG.car.length / 2 + 15);
     suspensionGroup.add(spotL);
     suspensionGroup.add(spotTargetL);
     spotL.target = spotTargetL;
 
-    const spotR = new THREE.SpotLight(0xfffaed, 0, 30, Math.PI / 5.5, 0.35, 1.2);
+    const spotR = new THREE.SpotLight(0xfffaed, 0, 32, Math.PI / 5.5, 0.35, 1.2);
     spotR.position.set(CONFIG.car.width * 0.36, 0.35, CONFIG.car.length / 2 + 0.2);
     const spotTargetR = new THREE.Object3D();
-    spotTargetR.position.set(CONFIG.car.width * 0.36, 0, CONFIG.car.length / 2 + 14);
+    spotTargetR.position.set(CONFIG.car.width * 0.36, 0, CONFIG.car.length / 2 + 15);
     suspensionGroup.add(spotR);
     suspensionGroup.add(spotTargetR);
     spotR.target = spotTargetR;
 
-    // 4. Taillights (Rear LED Strip)
-    const taillightGeo = new THREE.BoxGeometry(CONFIG.car.width * 0.88, 0.08, 0.08);
+    // 4. Taillights (Sleek Full-Width Red LED Light Bar)
     const taillightMat = carMaterials.taillightLens.clone();
+    const taillightGeo = new THREE.BoxGeometry(CONFIG.car.width * 0.9, 0.08, 0.08);
     const taillightMesh = new THREE.Mesh(taillightGeo, taillightMat);
-    taillightMesh.position.set(0, 0.42, -CONFIG.car.length / 2 - 0.01);
+    taillightMesh.position.set(0, 0.38, -CONFIG.car.length / 2 - 0.02);
     suspensionGroup.add(taillightMesh);
 
-    // 5. Side Mirrors
-    const mirrorGeo = new THREE.BoxGeometry(0.22, 0.1, 0.14);
+    // High Mount Center Brake Light (CHMSL)
+    const chmslGeo = new THREE.BoxGeometry(0.4, 0.04, 0.04);
+    const chmslMesh = new THREE.Mesh(chmslGeo, taillightMat);
+    chmslMesh.position.set(0, 0.92, -CONFIG.car.length * 0.34);
+    suspensionGroup.add(chmslMesh);
+
+    // 5. Aerodynamic Side Mirrors
+    const mirrorGeo = new THREE.BoxGeometry(0.24, 0.12, 0.15);
     const mirrorL = new THREE.Mesh(mirrorGeo, bodyMat);
-    mirrorL.position.set(-CONFIG.car.width / 2 - 0.12, 0.58, 0.65);
+    mirrorL.position.set(-CONFIG.car.width / 2 - 0.14, 0.58, 0.65);
+    mirrorL.castShadow = true;
     suspensionGroup.add(mirrorL);
 
     const mirrorR = new THREE.Mesh(mirrorGeo, bodyMat);
-    mirrorR.position.set(CONFIG.car.width / 2 + 0.12, 0.58, 0.65);
+    mirrorR.position.set(CONFIG.car.width / 2 + 0.14, 0.58, 0.65);
+    mirrorR.castShadow = true;
     suspensionGroup.add(mirrorR);
 
-    // 6. License Plate
-    const plateGeo = new THREE.PlaneGeometry(0.8, 0.2);
+    // 6. License Plates (Front & Rear)
     const plateMat = new THREE.MeshBasicMaterial({ map: createLicensePlateTexture(`AGY-${id < 10 ? '0' + id : id}`) });
-    const plateMesh = new THREE.Mesh(plateGeo, plateMat);
-    plateMesh.position.set(0, 0.22, -CONFIG.car.length / 2 - 0.03);
-    plateMesh.rotation.y = Math.PI;
-    suspensionGroup.add(plateMesh);
+    const plateGeo = new THREE.PlaneGeometry(0.8, 0.2);
 
-    // 7. Exhaust Tips (Dual Chrome)
-    const exhaustGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.15, 12);
+    // Rear plate
+    const plateRear = new THREE.Mesh(plateGeo, plateMat);
+    plateRear.position.set(0, 0.24, -CONFIG.car.length / 2 - 0.03);
+    plateRear.rotation.y = Math.PI;
+    suspensionGroup.add(plateRear);
+
+    // Front plate
+    const plateFront = new THREE.Mesh(plateGeo, plateMat);
+    plateFront.position.set(0, 0.16, CONFIG.car.length / 2 + 0.11);
+    suspensionGroup.add(plateFront);
+
+    // 7. Dual Polished Chrome Exhaust Tips
+    const exhaustGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.18, 16);
     exhaustGeo.rotateX(Math.PI / 2);
     const exhaustL = new THREE.Mesh(exhaustGeo, carMaterials.chrome);
-    exhaustL.position.set(-0.45, 0.1, -CONFIG.car.length / 2 - 0.05);
+    exhaustL.position.set(-0.48, 0.08, -CONFIG.car.length / 2 - 0.06);
     suspensionGroup.add(exhaustL);
 
     const exhaustR = new THREE.Mesh(exhaustGeo, carMaterials.chrome);
-    exhaustR.position.set(0.45, 0.1, -CONFIG.car.length / 2 - 0.05);
+    exhaustR.position.set(0.48, 0.08, -CONFIG.car.length / 2 - 0.06);
     suspensionGroup.add(exhaustR);
 
     // 8. Wheels & Steering Pivots
@@ -454,13 +594,6 @@
     const wheelRR = buildWheelMesh();
     wheelRR.position.set(CONFIG.car.trackWidth / 2, 0, -CONFIG.car.wheelbase / 2);
     suspensionGroup.add(wheelRR);
-
-    // 9. Contact / Drop Shadow Plane Under Chassis
-    const shadowGeo = new THREE.PlaneGeometry(CONFIG.car.width * 1.35, CONFIG.car.length * 1.25);
-    const shadowMesh = new THREE.Mesh(shadowGeo, carMaterials.shadow);
-    shadowMesh.rotation.x = -Math.PI / 2;
-    shadowMesh.position.y = 0.02;
-    carRoot.add(shadowMesh);
 
     // Car Entity Data Object
     const carEntity = {
@@ -499,8 +632,8 @@
   // --- Environment: Tarmac, Road Markings, Floodlights, Cones ---
 
   function buildEnvironment() {
-    // 1. Giant Ground Runway Tarmac
-    const groundGeo = new THREE.PlaneGeometry(170, 120);
+    // 1. Giant Ground Runway Tarmac with Real Soft Shadows
+    const groundGeo = new THREE.PlaneGeometry(180, 130);
     const asphaltTex = createAsphaltTexture();
     const groundMat = new THREE.MeshStandardMaterial({
       map: asphaltTex,
@@ -525,7 +658,7 @@
     // 5. Skid Marks & Oil Stains
     buildSkidMarks();
 
-    // 6. Colon Separator Markers
+    // 6. Colon Separator Markers with Safety Cones & Roundels
     buildColonMarkers();
   }
 
@@ -535,24 +668,24 @@
 
     const lineWhiteMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
     const lineYellowMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
-    const stallBorderMat = new THREE.MeshBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.55 });
-    const stallCornerMat = new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: true, opacity: 0.65 });
+    const stallBorderMat = new THREE.MeshBasicMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.45 });
+    const stallCornerMat = new THREE.MeshBasicMaterial({ color: 0xfacc15, transparent: true, opacity: 0.75 });
 
     // 1. Staging Parking Bays Outlines
-    // North Staging (Z = -15.5) & South Staging (Z = +15.5)
-    [-15.5, 15.5].forEach(zPos => {
+    // North Staging (Z = -17.5) & South Staging (Z = +17.5)
+    [-CONFIG.staging.southZ, CONFIG.staging.southZ].forEach(zPos => {
       // Long bounding line
-      const boundGeo = new THREE.PlaneGeometry(76, 0.15);
+      const boundGeo = new THREE.PlaneGeometry(82, 0.16);
       const boundMesh = new THREE.Mesh(boundGeo, lineWhiteMat);
       boundMesh.rotation.x = -Math.PI / 2;
-      boundMesh.position.set(0, 0, zPos + (zPos > 0 ? 2.6 : -2.6));
+      boundMesh.position.set(0, 0, zPos + (zPos > 0 ? 2.8 : -2.8));
       runwayLinesGroup.add(boundMesh);
 
       // Bay partition dividers (26 bays)
-      for (let i = 0; i <= 26; i++) {
-        const x = -35 + i * (70 / 26);
-        const divGeo = new THREE.PlaneGeometry(0.12, 5.2);
-        const divMesh = new THREE.Mesh(divGeo, lineWhiteMat);
+      for (let i = 0; i <= CONFIG.staging.baysPerRow; i++) {
+        const x = CONFIG.staging.startX + i * ((CONFIG.staging.endX - CONFIG.staging.startX) / CONFIG.staging.baysPerRow);
+        const divGeo = new THREE.PlaneGeometry(0.12, 5.6);
+        divMesh = new THREE.Mesh(divGeo, lineWhiteMat);
         divMesh.rotation.x = -Math.PI / 2;
         divMesh.position.set(x, 0, zPos);
         runwayLinesGroup.add(divMesh);
@@ -560,28 +693,28 @@
     });
 
     // 2. Clock Runway Central Apron Boundary
-    const apronBoundGeo = new THREE.PlaneGeometry(84, 0.2);
+    const apronBoundGeo = new THREE.PlaneGeometry(92, 0.22);
     const apronNorth = new THREE.Mesh(apronBoundGeo, lineYellowMat);
     apronNorth.rotation.x = -Math.PI / 2;
-    apronNorth.position.set(0, 0, -10.5);
+    apronNorth.position.set(0, 0, -11.8);
     runwayLinesGroup.add(apronNorth);
 
     const apronSouth = new THREE.Mesh(apronBoundGeo, lineYellowMat);
     apronSouth.rotation.x = -Math.PI / 2;
-    apronSouth.position.set(0, 0, 10.5);
+    apronSouth.position.set(0, 0, 11.8);
     runwayLinesGroup.add(apronSouth);
 
     // 3. Centerline Driving Guides (Dashed yellow)
-    for (let x = -40; x <= 40; x += 3.5) {
-      const dashGeo = new THREE.PlaneGeometry(2.0, 0.14);
+    for (let x = -44; x <= 44; x += 3.8) {
+      const dashGeo = new THREE.PlaneGeometry(2.2, 0.14);
       const dashMeshN = new THREE.Mesh(dashGeo, lineYellowMat);
       dashMeshN.rotation.x = -Math.PI / 2;
-      dashMeshN.position.set(x, 0, -8.5);
+      dashMeshN.position.set(x, 0, -9.5);
       runwayLinesGroup.add(dashMeshN);
 
       const dashMeshS = new THREE.Mesh(dashGeo, lineYellowMat);
       dashMeshS.rotation.x = -Math.PI / 2;
-      dashMeshS.position.set(x, 0, 8.5);
+      dashMeshS.position.set(x, 0, 9.5);
       runwayLinesGroup.add(dashMeshS);
     }
 
@@ -594,8 +727,8 @@
         stallGroup.position.set(trans.pos.x, 0, trans.pos.z);
         stallGroup.rotation.y = trans.yaw;
 
-        const w = 2.2;
-        const l = 4.6;
+        const w = 2.3;
+        const l = 4.8;
         const thickness = 0.08;
 
         // Side boundary lines
@@ -625,24 +758,24 @@
       });
     }
 
-    // 5. Runway Painted Text / Decals
+    // 5. Runway Stencil Decals
     const runwayCanvas = document.createElement('canvas');
     runwayCanvas.width = 512;
     runwayCanvas.height = 128;
     const rCtx = runwayCanvas.getContext('2d');
     rCtx.fillStyle = 'rgba(0,0,0,0)';
     rCtx.fillRect(0, 0, 512, 128);
-    rCtx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    rCtx.font = 'bold 50px monospace';
+    rCtx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+    rCtx.font = 'bold 46px monospace';
     rCtx.textAlign = 'center';
     rCtx.fillText('RUNWAY 27L', 256, 75);
 
     const rTex = new THREE.CanvasTexture(runwayCanvas);
-    const rGeo = new THREE.PlaneGeometry(16, 4);
+    const rGeo = new THREE.PlaneGeometry(18, 4.5);
     const rMat = new THREE.MeshBasicMaterial({ map: rTex, transparent: true });
     const rMesh = new THREE.Mesh(rGeo, rMat);
     rMesh.rotation.x = -Math.PI / 2;
-    rMesh.position.set(-30, 0.016, 0);
+    rMesh.position.set(-32, 0.016, 0);
     runwayLinesGroup.add(rMesh);
 
     scene.add(runwayLinesGroup);
@@ -652,25 +785,36 @@
     const coneGroup = new THREE.Group();
 
     // Base square rubber plate
-    const baseGeo = new THREE.BoxGeometry(0.48, 0.05, 0.48);
+    const baseGeo = new THREE.BoxGeometry(0.5, 0.06, 0.5);
     const baseMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.9 });
     const baseMesh = new THREE.Mesh(baseGeo, baseMat);
-    baseMesh.position.y = 0.025;
+    baseMesh.position.y = 0.03;
+    baseMesh.castShadow = true;
+    baseMesh.receiveShadow = true;
     coneGroup.add(baseMesh);
 
     // Orange Cone body
-    const bodyGeo = new THREE.CylinderGeometry(0.04, 0.22, 0.7, 16);
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xff6b00, roughness: 0.4 });
+    const bodyGeo = new THREE.CylinderGeometry(0.04, 0.24, 0.75, 20);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xff6b00, roughness: 0.35 });
     const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
-    bodyMesh.position.y = 0.37;
+    bodyMesh.position.y = 0.40;
+    bodyMesh.castShadow = true;
+    bodyMesh.receiveShadow = true;
     coneGroup.add(bodyMesh);
 
-    // White reflective band
-    const bandGeo = new THREE.CylinderGeometry(0.11, 0.16, 0.2, 16);
-    const bandMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2 });
-    const bandMesh = new THREE.Mesh(bandGeo, bandMat);
-    bandMesh.position.y = 0.38;
-    coneGroup.add(bandMesh);
+    // White reflective bands (2 bands)
+    const bandGeo1 = new THREE.CylinderGeometry(0.10, 0.15, 0.16, 20);
+    const bandMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.15 });
+    const bandMesh1 = new THREE.Mesh(bandGeo1, bandMat);
+    bandMesh1.position.y = 0.45;
+    bandMesh1.castShadow = true;
+    coneGroup.add(bandMesh1);
+
+    const bandGeo2 = new THREE.CylinderGeometry(0.16, 0.20, 0.12, 20);
+    const bandMesh2 = new THREE.Mesh(bandGeo2, bandMat);
+    bandMesh2.position.y = 0.26;
+    bandMesh2.castShadow = true;
+    coneGroup.add(bandMesh2);
 
     return coneGroup;
   }
@@ -679,25 +823,25 @@
     conesGroup = new THREE.Group();
 
     // Place cones along runway perimeter and staging junctions
-    const xCoords = [-38, -28, -18, -8, 8, 18, 28, 38];
+    const xCoords = [-40, -30, -20, -10, 10, 20, 30, 40];
     xCoords.forEach(x => {
       const coneN = createTrafficConeMesh();
-      coneN.position.set(x, 0, -10.5);
+      coneN.position.set(x, 0, -11.8);
       conesGroup.add(coneN);
 
       const coneS = createTrafficConeMesh();
-      coneS.position.set(x, 0, 10.5);
+      coneS.position.set(x, 0, 11.8);
       conesGroup.add(coneS);
     });
 
     // Outer boundary cones
-    for (let z = -15; z <= 15; z += 7.5) {
+    for (let z = -17; z <= 17; z += 8.5) {
       const coneW = createTrafficConeMesh();
-      coneW.position.set(-39, 0, z);
+      coneW.position.set(-42, 0, z);
       conesGroup.add(coneW);
 
       const coneE = createTrafficConeMesh();
-      coneE.position.set(39, 0, z);
+      coneE.position.set(42, 0, z);
       conesGroup.add(coneE);
     }
 
@@ -709,24 +853,24 @@
     skidmarksGroup.position.y = 0.012;
 
     const skidMat = new THREE.MeshBasicMaterial({
-      color: 0x0a0d14,
+      color: 0x070a10,
       transparent: true,
-      opacity: 0.45,
+      opacity: 0.42,
       depthWrite: false,
     });
 
     // Curved tire marks on turning radii
     const turns = [
-      { x: -20, z: -9, rot: 0.3 },
-      { x: -8, z: -9, rot: -0.4 },
-      { x: 8, z: 9, rot: 0.35 },
-      { x: 20, z: 9, rot: -0.3 },
-      { x: 0, z: -9, rot: 0.5 },
-      { x: 0, z: 9, rot: -0.5 },
+      { x: -22, z: -10, rot: 0.3 },
+      { x: -9, z: -10, rot: -0.4 },
+      { x: 9, z: 10, rot: 0.35 },
+      { x: 22, z: 10, rot: -0.3 },
+      { x: 0, z: -10, rot: 0.5 },
+      { x: 0, z: 10, rot: -0.5 },
     ];
 
     turns.forEach(t => {
-      const markGeo = new THREE.RingGeometry(2.5, 2.7, 16, 1, 0, Math.PI / 2);
+      const markGeo = new THREE.RingGeometry(2.6, 2.85, 20, 1, 0, Math.PI / 2);
       const markMesh = new THREE.Mesh(markGeo, skidMat);
       markMesh.rotation.x = -Math.PI / 2;
       markMesh.rotation.z = t.rot;
@@ -741,36 +885,67 @@
     colonGroup = new THREE.Group();
     colonGroup.position.y = 0.018;
 
-    const dotGeo = new THREE.RingGeometry(0.25, 0.75, 24);
-    const dotMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide });
+    // Outer white border ring
+    const outerRingGeo = new THREE.RingGeometry(0.9, 1.05, 32);
+    const outerRingMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc, side: THREE.DoubleSide });
 
-    // Support up to 2 colons (for 6-digit mode) or 1 colon (for 4-digit mode)
+    // Green reflective roundel disk
+    const greenDiscGeo = new THREE.RingGeometry(0.2, 0.9, 32);
+    const greenDiscMat = new THREE.MeshBasicMaterial({ color: 0x10b981, side: THREE.DoubleSide });
+
+    // Support 2 colons (for 6-digit mode) and 1 colon (for 4-digit mode)
     const colonConfigs = [
-      { id: 'mid', x: DIGIT_LAYOUT.colons4[0], z1: -2.2, z2: 2.2 },
-      { id: 'left', x: DIGIT_LAYOUT.colons6[0], z1: -2.2, z2: 2.2 },
-      { id: 'right', x: DIGIT_LAYOUT.colons6[1], z1: -2.2, z2: 2.2 },
+      { id: 'mid', x: DIGIT_LAYOUT.colons4[0], z1: -2.5, z2: 2.5 },
+      { id: 'left', x: DIGIT_LAYOUT.colons6[0], z1: -2.5, z2: 2.5 },
+      { id: 'right', x: DIGIT_LAYOUT.colons6[1], z1: -2.5, z2: 2.5 },
     ];
 
     colonConfigs.forEach(cfg => {
       [cfg.z1, cfg.z2].forEach((z) => {
-        const dot = new THREE.Mesh(dotGeo, dotMat);
-        dot.rotation.x = -Math.PI / 2;
-        dot.position.set(cfg.x, 0, z);
-        colonGroup.add(dot);
+        const markerGroup = new THREE.Group();
+        markerGroup.position.set(cfg.x, 0, z);
 
-        // Flashing glowing center beacon
-        const beaconGeo = new THREE.SphereGeometry(0.24, 16, 16);
+        // 1. Outer White Ring
+        const ring = new THREE.Mesh(outerRingGeo, outerRingMat);
+        ring.rotation.x = -Math.PI / 2;
+        markerGroup.add(ring);
+
+        // 2. Inner Green Roundel Pad
+        const disc = new THREE.Mesh(greenDiscGeo, greenDiscMat);
+        disc.rotation.x = -Math.PI / 2;
+        markerGroup.add(disc);
+
+        // 3. Glowing Center Beacon Light
+        const beaconGeo = new THREE.SphereGeometry(0.28, 20, 20);
         const beaconMat = new THREE.MeshStandardMaterial({
-          color: 0x38bdf8,
-          emissive: 0x38bdf8,
-          emissiveIntensity: 0.85,
-          roughness: 0.2,
+          color: 0x10b981,
+          emissive: 0x10b981,
+          emissiveIntensity: 1.0,
+          roughness: 0.15,
         });
         const beacon = new THREE.Mesh(beaconGeo, beaconMat);
-        beacon.position.set(cfg.x, 0.24, z);
-        colonGroup.add(beacon);
+        beacon.position.y = 0.28;
+        beacon.castShadow = true;
+        markerGroup.add(beacon);
 
-        colonMarkers.push({ beacon, dot, mat: beaconMat, cfgId: cfg.id });
+        // 4. Four Safety Cones around the Colon Roundel
+        const coneOffsets = [
+          { x: -1.2, z: -1.2 },
+          { x: 1.2, z: -1.2 },
+          { x: -1.2, z: 1.2 },
+          { x: 1.2, z: 1.2 },
+        ];
+        const conesSubGroup = new THREE.Group();
+        coneOffsets.forEach(co => {
+          const cone = createTrafficConeMesh();
+          cone.scale.set(0.85, 0.85, 0.85);
+          cone.position.set(co.x, 0, co.z);
+          conesSubGroup.add(cone);
+        });
+        markerGroup.add(conesSubGroup);
+
+        colonGroup.add(markerGroup);
+        colonMarkers.push({ group: markerGroup, beacon, mat: beaconMat, cfgId: cfg.id });
       });
     });
 
@@ -783,26 +958,24 @@
       if (state.showSeconds) {
         // Show left & right colons, hide mid colon
         const visible = c.cfgId === 'left' || c.cfgId === 'right';
-        c.beacon.visible = visible;
-        c.dot.visible = visible;
+        c.group.visible = visible;
       } else {
         // Show mid colon, hide left & right colons
         const visible = c.cfgId === 'mid';
-        c.beacon.visible = visible;
-        c.dot.visible = visible;
+        c.group.visible = visible;
       }
     });
   }
 
   function buildFloodlightTowers() {
     const towerPositions = [
-      { x: -40, z: -22 },
-      { x: 40, z: -22 },
-      { x: -40, z: 22 },
-      { x: 40, z: 22 },
+      { x: -44, z: -24 },
+      { x: 44, z: -24 },
+      { x: -44, z: 24 },
+      { x: 44, z: 24 },
     ];
 
-    const towerMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.7, roughness: 0.3 });
+    const towerMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.75, roughness: 0.25 });
     const lampMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.0 });
 
     towerPositions.forEach((pos) => {
@@ -810,36 +983,36 @@
       towerGroup.position.set(pos.x, 0, pos.z);
 
       // Lattice mast post
-      const mastGeo = new THREE.CylinderGeometry(0.4, 0.6, 22, 8);
+      const mastGeo = new THREE.CylinderGeometry(0.4, 0.65, 24, 8);
       const mast = new THREE.Mesh(mastGeo, towerMat);
-      mast.position.y = 11;
+      mast.position.y = 12;
       mast.castShadow = true;
       towerGroup.add(mast);
 
       // Top platform crossbar
-      const barGeo = new THREE.BoxGeometry(4, 0.4, 1.2);
+      const barGeo = new THREE.BoxGeometry(4.2, 0.4, 1.2);
       const bar = new THREE.Mesh(barGeo, towerMat);
-      bar.position.y = 22;
+      bar.position.y = 24;
       towerGroup.add(bar);
 
       // 3 Floodlight fixtures
       for (let i = -1; i <= 1; i++) {
         const fixtureGeo = new THREE.BoxGeometry(0.8, 0.8, 0.6);
         const fixture = new THREE.Mesh(fixtureGeo, towerMat);
-        fixture.position.set(i * 1.4, 22.4, 0);
+        fixture.position.set(i * 1.4, 24.4, 0);
         fixture.lookAt(0, 0, 0);
         towerGroup.add(fixture);
 
         const lensGeo = new THREE.PlaneGeometry(0.7, 0.7);
         const lens = new THREE.Mesh(lensGeo, lampMat);
-        lens.position.set(i * 1.4, 22.4, 0.32);
+        lens.position.set(i * 1.4, 24.4, 0.32);
         lens.lookAt(0, 0, 0);
         towerGroup.add(lens);
       }
 
       // Three.js SpotLight pointing at tarmac
-      const spot = new THREE.SpotLight(0xfff5e6, 0, 95, Math.PI / 4, 0.45, 1.1);
-      spot.position.set(pos.x, 22, pos.z);
+      const spot = new THREE.SpotLight(0xfff5e6, 0, 110, Math.PI / 3.8, 0.45, 1.1);
+      spot.position.set(pos.x, 24, pos.z);
       spot.target.position.set(pos.x * 0.2, 0, pos.z * 0.2);
       spot.castShadow = true;
       spot.shadow.mapSize.width = 1024;
@@ -856,22 +1029,26 @@
   // --- Lighting & Day/Night System ---
 
   function setupLighting() {
-    sunLight = new THREE.DirectionalLight(0xfffaed, 1.4);
-    sunLight.position.set(45, 75, 35);
+    // 1. Directional Sun Light (Crisp daylight illumination with soft directional shadows)
+    sunLight = new THREE.DirectionalLight(0xfffdf5, 1.6);
+    sunLight.position.set(38, 65, 32);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 2048;
     sunLight.shadow.mapSize.height = 2048;
     sunLight.shadow.camera.near = 10;
-    sunLight.shadow.camera.far = 200;
-    const d = 48;
+    sunLight.shadow.camera.far = 180;
+    const d = 52;
     sunLight.shadow.camera.left = -d;
     sunLight.shadow.camera.right = d;
     sunLight.shadow.camera.top = d;
     sunLight.shadow.camera.bottom = -d;
-    sunLight.shadow.bias = -0.0003;
+    sunLight.shadow.bias = -0.0002;
+    sunLight.shadow.normalBias = 0.02;
+    sunLight.shadow.radius = 2.0;
     scene.add(sunLight);
 
-    ambientLight = new THREE.AmbientLight(0x94a3b8, 0.65);
+    // 2. Clean Sky Blue Ambient Light
+    ambientLight = new THREE.AmbientLight(0xbfdbfe, 0.85);
     scene.add(ambientLight);
 
     applyLightingMode('day');
@@ -881,12 +1058,12 @@
     state.lightingMode = mode;
 
     if (mode === 'day') {
-      scene.background = new THREE.Color(0x0c1322);
-      sunLight.color.set(0xfffaed);
-      sunLight.intensity = 1.35;
-      sunLight.position.set(45, 75, 35);
-      ambientLight.color.set(0x94a3b8);
-      ambientLight.intensity = 0.65;
+      scene.background = new THREE.Color(0x090e18);
+      sunLight.color.set(0xfffdf5);
+      sunLight.intensity = 1.6;
+      sunLight.position.set(38, 65, 32);
+      ambientLight.color.set(0xbfdbfe);
+      ambientLight.intensity = 0.85;
 
       floodlights.forEach(f => {
         f.spot.intensity = 0;
@@ -894,30 +1071,30 @@
       });
 
       carFleet.forEach(car => {
-        car.headlightMat.emissiveIntensity = car.state === 'driving' ? 0.8 : 0.2;
+        car.headlightMat.emissiveIntensity = car.state === 'driving' ? 1.0 : 0.4;
         car.spotL.intensity = 0;
         car.spotR.intensity = 0;
-        car.taillightMat.emissiveIntensity = car.state === 'driving' ? 0.9 : 0.3;
+        car.taillightMat.emissiveIntensity = car.state === 'driving' ? 1.0 : 0.4;
       });
 
     } else if (mode === 'sunset') {
-      scene.background = new THREE.Color(0x1a0f1d);
-      sunLight.color.set(0xff7738);
-      sunLight.intensity = 1.1;
-      sunLight.position.set(70, 25, 45);
-      ambientLight.color.set(0x7c3aed);
-      ambientLight.intensity = 0.45;
+      scene.background = new THREE.Color(0x180e22);
+      sunLight.color.set(0xff7c38);
+      sunLight.intensity = 1.35;
+      sunLight.position.set(65, 28, 40);
+      ambientLight.color.set(0x8b5cf6);
+      ambientLight.intensity = 0.55;
 
       floodlights.forEach(f => {
-        f.spot.intensity = state.toggleFloodlights ? 0.4 : 0;
-        f.lampMat.emissiveIntensity = 0.5;
+        f.spot.intensity = state.toggleFloodlights ? 0.6 : 0;
+        f.lampMat.emissiveIntensity = 0.6;
       });
 
       carFleet.forEach(car => {
-        car.headlightMat.emissiveIntensity = 0.8;
-        car.spotL.intensity = 0.4;
-        car.spotR.intensity = 0.4;
-        car.taillightMat.emissiveIntensity = 0.7;
+        car.headlightMat.emissiveIntensity = 1.0;
+        car.spotL.intensity = 0.5;
+        car.spotR.intensity = 0.5;
+        car.taillightMat.emissiveIntensity = 0.8;
       });
 
     } else if (mode === 'night') {
@@ -926,18 +1103,18 @@
       sunLight.intensity = 0.12;
       sunLight.position.set(20, 50, 20);
       ambientLight.color.set(0x0f172a);
-      ambientLight.intensity = 0.22;
+      ambientLight.intensity = 0.25;
 
       floodlights.forEach(f => {
-        f.spot.intensity = state.toggleFloodlights ? 1.8 : 0;
+        f.spot.intensity = state.toggleFloodlights ? 2.0 : 0;
         f.lampMat.emissiveIntensity = 1.0;
       });
 
       carFleet.forEach(car => {
-        car.headlightMat.emissiveIntensity = 1.0;
-        car.spotL.intensity = 1.2;
-        car.spotR.intensity = 1.2;
-        car.taillightMat.emissiveIntensity = 0.9;
+        car.headlightMat.emissiveIntensity = 1.2;
+        car.spotL.intensity = 1.5;
+        car.spotR.intensity = 1.5;
+        car.taillightMat.emissiveIntensity = 1.0;
       });
     }
   }
@@ -988,7 +1165,7 @@
     } else if (totalDigits === 4) {
       return new THREE.Vector3(DIGIT_LAYOUT.digits4[digitIdx] !== undefined ? DIGIT_LAYOUT.digits4[digitIdx] : 0, 0, 0);
     } else {
-      const spacing = 7.6;
+      const spacing = 8.4;
       const startX = -((totalDigits - 1) * spacing) / 2;
       return new THREE.Vector3(startX + digitIdx * spacing, 0, 0);
     }
@@ -1043,17 +1220,17 @@
     waypoints.push(startPos.clone());
 
     // 2. Pull out forward along current heading
-    const forwardStart = new THREE.Vector3(Math.sin(startYaw), 0, Math.cos(startYaw)).multiplyScalar(3.2);
+    const forwardStart = new THREE.Vector3(Math.sin(startYaw), 0, Math.cos(startYaw)).multiplyScalar(3.5);
     const pullOutPt = startPos.clone().add(forwardStart);
     waypoints.push(pullOutPt);
 
-    // 3. Transit waypoint via central driving lane (Z = -8.5 or Z = +8.5)
-    const laneZ = startPos.z < 0 ? -8.5 : 8.5;
+    // 3. Transit waypoint via central driving lane (Z = -9.5 or Z = +9.5)
+    const laneZ = startPos.z < 0 ? -9.5 : 9.5;
     const midX = (startPos.x + endPos.x) / 2;
     waypoints.push(new THREE.Vector3(midX, 0, laneZ));
 
     // 4. Approach waypoint in front of target slot
-    const forwardEnd = new THREE.Vector3(Math.sin(endYaw), 0, Math.cos(endYaw)).multiplyScalar(-3.2);
+    const forwardEnd = new THREE.Vector3(Math.sin(endYaw), 0, Math.cos(endYaw)).multiplyScalar(-3.5);
     const approachPt = endPos.clone().add(forwardEnd);
     waypoints.push(approachPt);
 
@@ -1080,7 +1257,7 @@
       activeSegs.forEach(seg => {
         const key = `${digitIdx}_${seg}`;
         const transform = getSegmentSlotTransform(digitIdx, seg, totalDigits);
-        requiredSegments.set(key, { digitIdx, seg, transform });
+        requiredSegments.set(key, { digitIdx, seg, transform, key });
       });
     });
 
@@ -1108,7 +1285,7 @@
     requiredSegments.forEach((item, key) => {
       if (activeAssignments.has(key)) {
         const car = activeAssignments.get(key);
-        if (car && car.targetPos && car.targetPos.distanceTo(item.transform.pos) > 0.5) {
+        if (car && car.targetPos && car.targetPos.distanceTo(item.transform.pos) > 0.4) {
           dispatchCar(car, item.transform.pos, item.transform.yaw, { type: 'segment', key: item.key });
         }
       }
@@ -1153,15 +1330,15 @@
     car.targetPos = targetPos.clone();
     car.targetYaw = targetYaw;
     car.transitProgress = 0;
-    car.transitDuration = 2.5 + Math.random() * 0.7;
+    car.transitDuration = 2.4 + Math.random() * 0.6;
     car.state = 'driving';
     car.prevPos.copy(startPos);
 
     if (state.soundEnabled) playCarSound('rev');
-    car.headlightMat.emissiveIntensity = 1.0;
+    car.headlightMat.emissiveIntensity = 1.2;
     if (state.lightingMode === 'night') {
-      car.spotL.intensity = 1.2;
-      car.spotR.intensity = 1.2;
+      car.spotL.intensity = 1.5;
+      car.spotR.intensity = 1.5;
     }
 
     if (state.cameraMode === 'follow' && (state.trackedCarIndex === -1 || carFleet[state.trackedCarIndex]?.state !== 'driving')) {
@@ -1218,8 +1395,10 @@
       const timeHUD = state.showSeconds ? `${hStr}:${mStr}:${sStr}` : `${hStr}:${mStr}`;
       const timeClockString = state.showSeconds ? `${hStr}${mStr}${sStr}` : `${hStr}${mStr}`;
 
-      document.getElementById('hud-time-digits').textContent = timeHUD;
-      document.getElementById('hud-ampm').textContent = ampm;
+      const timeDigitsEl = document.getElementById('hud-time-digits');
+      if (timeDigitsEl) timeDigitsEl.textContent = timeHUD;
+      const ampmEl = document.getElementById('hud-ampm');
+      if (ampmEl) ampmEl.textContent = ampm;
 
       updateClockDisplay(timeClockString);
 
@@ -1252,8 +1431,10 @@
       const timeHUD = state.showSeconds ? `${hStr}:${mStr}:${sStr}` : `${hStr}:${mStr}`;
       const timeClockString = state.showSeconds ? `${hStr}${mStr}${sStr}` : `${hStr}${mStr}`;
 
-      document.getElementById('hud-time-digits').textContent = timeHUD;
-      document.getElementById('hud-ampm').textContent = ampm;
+      const timeDigitsEl = document.getElementById('hud-time-digits');
+      if (timeDigitsEl) timeDigitsEl.textContent = timeHUD;
+      const ampmEl = document.getElementById('hud-ampm');
+      if (ampmEl) ampmEl.textContent = ampm;
 
       updateClockDisplay(timeClockString);
     }
@@ -1315,7 +1496,7 @@
           car.mesh.rotation.y = car.targetYaw;
           car.steerPivotFL.rotation.y = 0;
           car.steerPivotFR.rotation.y = 0;
-          car.taillightMat.emissiveIntensity = state.lightingMode === 'night' ? 0.8 : 0.3;
+          car.taillightMat.emissiveIntensity = state.lightingMode === 'night' ? 0.8 : 0.4;
 
           if (state.soundEnabled) playCarSound('brake');
         }
@@ -1364,7 +1545,7 @@
         const carPos = trackedCar.mesh.position;
         const carYaw = trackedCar.mesh.rotation.y;
 
-        const offset = new THREE.Vector3(-Math.sin(carYaw) * 11, 5.5, -Math.cos(carYaw) * 11);
+        const offset = new THREE.Vector3(-Math.sin(carYaw) * 12, 6.0, -Math.cos(carYaw) * 12);
         const desiredCamPos = carPos.clone().add(offset);
 
         camera.position.lerp(desiredCamPos, 0.08);
@@ -1387,7 +1568,7 @@
   function updateColonBeacons(elapsedTime) {
     const pulse = (Math.sin(elapsedTime * 3) + 1) / 2;
     colonMarkers.forEach(c => {
-      c.mat.emissiveIntensity = 0.4 + pulse * 0.8;
+      c.mat.emissiveIntensity = 0.6 + pulse * 0.8;
     });
   }
 
@@ -1400,25 +1581,31 @@
 
     const followCard = document.getElementById('follow-cam-card');
 
-    if (presetName === 'aerial') {
-      followCard.classList.add('hidden');
-      transitionCameraTo(CONFIG.camera.aerial.pos, CONFIG.camera.aerial.target, CONFIG.camera.aerial.up);
-      if (controls) controls.enabled = true;
-      showToast('Aerial Top-Down View Activated');
-
-    } else if (presetName === 'perspective') {
-      followCard.classList.add('hidden');
+    if (presetName === 'perspective') {
+      if (followCard) followCard.classList.add('hidden');
       transitionCameraTo(CONFIG.camera.perspective.pos, CONFIG.camera.perspective.target, CONFIG.camera.perspective.up);
-      if (controls) controls.enabled = true;
-      showToast('Perspective 3D View Activated');
+      if (controls) {
+        controls.enabled = true;
+        controls.autoRotate = false;
+      }
+      showToast('Perspective 3D Isometric View (Installation Angle)');
+
+    } else if (presetName === 'aerial') {
+      if (followCard) followCard.classList.add('hidden');
+      transitionCameraTo(CONFIG.camera.aerial.pos, CONFIG.camera.aerial.target, CONFIG.camera.aerial.up);
+      if (controls) {
+        controls.enabled = true;
+        controls.autoRotate = false;
+      }
+      showToast('High-Angle Drone View Activated');
 
     } else if (presetName === 'follow') {
-      followCard.classList.remove('hidden');
+      if (followCard) followCard.classList.remove('hidden');
       if (controls) controls.enabled = false;
       showToast('Follow Car Camera Activated');
 
     } else if (presetName === 'orbit') {
-      followCard.classList.add('hidden');
+      if (followCard) followCard.classList.add('hidden');
       if (controls) {
         controls.enabled = true;
         controls.autoRotate = true;
@@ -1520,6 +1707,7 @@
   function showToast(msg) {
     const toast = document.getElementById('toast-notification');
     const toastText = document.getElementById('toast-text');
+    if (!toast || !toastText) return;
     toastText.textContent = msg;
     toast.classList.add('show');
     clearTimeout(toast._timeout);
@@ -1532,114 +1720,157 @@
     const activeCount = activeAssignments.size;
     const stagingCount = carFleet.filter(c => c.currentSlot && c.currentSlot.type === 'staging').length;
 
-    document.getElementById('stat-active-cars').textContent = activeCount;
-    document.getElementById('stat-staging-cars').textContent = stagingCount;
-    document.getElementById('stat-sim-mode').textContent = state.clockMode.toUpperCase();
+    const activeEl = document.getElementById('stat-active-cars');
+    if (activeEl) activeEl.textContent = activeCount;
+    const stagingEl = document.getElementById('stat-staging-cars');
+    if (stagingEl) stagingEl.textContent = stagingCount;
+    const modeEl = document.getElementById('stat-sim-mode');
+    if (modeEl) modeEl.textContent = state.clockMode.toUpperCase();
   }
 
   function updateFollowCamCard(car) {
     if (!car) return;
-    document.getElementById('tracked-car-id').textContent = car.id < 10 ? '0' + car.id : car.id;
+    const idEl = document.getElementById('tracked-car-id');
+    if (idEl) idEl.textContent = car.id < 10 ? '0' + car.id : car.id;
     const speedKmH = Math.round(car.speed * 8.5);
-    document.getElementById('tracked-car-speed').textContent = `Speed: ${speedKmH} km/h`;
+    const speedEl = document.getElementById('tracked-car-speed');
+    if (speedEl) speedEl.textContent = `Speed: ${speedKmH} km/h`;
 
     if (car.targetSlot) {
       const slotDesc = car.targetSlot.type === 'staging' ? `Staging ${car.targetSlot.id}` : `Digit Slot [${car.targetSlot.key}]`;
-      document.getElementById('tracked-car-action').textContent = `Transit &rarr; ${slotDesc}`;
+      const actionEl = document.getElementById('tracked-car-action');
+      if (actionEl) actionEl.textContent = `Transit &rarr; ${slotDesc}`;
     }
   }
 
   function setupUIEventListeners() {
     // 1. Camera Buttons
-    document.getElementById('cam-aerial').addEventListener('click', () => setCameraPreset('aerial'));
-    document.getElementById('cam-perspective').addEventListener('click', () => setCameraPreset('perspective'));
-    document.getElementById('cam-follow').addEventListener('click', () => setCameraPreset('follow'));
-    document.getElementById('cam-orbit').addEventListener('click', () => setCameraPreset('orbit'));
+    const btnPerspective = document.getElementById('cam-perspective');
+    if (btnPerspective) btnPerspective.addEventListener('click', () => setCameraPreset('perspective'));
+    const btnAerial = document.getElementById('cam-aerial');
+    if (btnAerial) btnAerial.addEventListener('click', () => setCameraPreset('aerial'));
+    const btnFollow = document.getElementById('cam-follow');
+    if (btnFollow) btnFollow.addEventListener('click', () => setCameraPreset('follow'));
+    const btnOrbit = document.getElementById('cam-orbit');
+    if (btnOrbit) btnOrbit.addEventListener('click', () => setCameraPreset('orbit'));
 
     // 2. Lighting Buttons
-    document.getElementById('light-day').addEventListener('click', () => {
-      setActiveButton('.btn-ctrl[id^="light-"]', 'light-day');
-      applyLightingMode('day');
-      showToast('Daylight Mode');
-    });
-    document.getElementById('light-sunset').addEventListener('click', () => {
-      setActiveButton('.btn-ctrl[id^="light-"]', 'light-sunset');
-      applyLightingMode('sunset');
-      showToast('Sunset Golden Hour Mode');
-    });
-    document.getElementById('light-night').addEventListener('click', () => {
-      setActiveButton('.btn-ctrl[id^="light-"]', 'light-night');
-      applyLightingMode('night');
-      showToast('Night Mode with Headlights & Floodlights');
-    });
+    const btnLightDay = document.getElementById('light-day');
+    if (btnLightDay) {
+      btnLightDay.addEventListener('click', () => {
+        setActiveButton('.btn-ctrl[id^="light-"]', 'light-day');
+        applyLightingMode('day');
+        showToast('Daylight Mode — Crisp Sun & Sky Ambient');
+      });
+    }
+    const btnLightSunset = document.getElementById('light-sunset');
+    if (btnLightSunset) {
+      btnLightSunset.addEventListener('click', () => {
+        setActiveButton('.btn-ctrl[id^="light-"]', 'light-sunset');
+        applyLightingMode('sunset');
+        showToast('Sunset Golden Hour Mode');
+      });
+    }
+    const btnLightNight = document.getElementById('light-night');
+    if (btnLightNight) {
+      btnLightNight.addEventListener('click', () => {
+        setActiveButton('.btn-ctrl[id^="light-"]', 'light-night');
+        applyLightingMode('night');
+        showToast('Night Mode with Headlights & Floodlights');
+      });
+    }
 
     // 3. Mode Buttons
-    document.getElementById('mode-live').addEventListener('click', () => {
-      setActiveButton('.btn-ctrl[id^="mode-"]', 'mode-live');
-      state.clockMode = 'live';
-      showToast('Live System Clock Synced');
-      updateHUDStats();
-    });
-    document.getElementById('mode-fast').addEventListener('click', () => {
-      setActiveButton('.btn-ctrl[id^="mode-"]', 'mode-fast');
-      state.clockMode = 'fast';
-      showToast('Fast Demo Mode Activated');
-      updateHUDStats();
-    });
+    const btnModeLive = document.getElementById('mode-live');
+    if (btnModeLive) {
+      btnModeLive.addEventListener('click', () => {
+        setActiveButton('.btn-ctrl[id^="mode-"]', 'mode-live');
+        state.clockMode = 'live';
+        showToast('Live System Clock Synced');
+        updateHUDStats();
+      });
+    }
+    const btnModeFast = document.getElementById('mode-fast');
+    if (btnModeFast) {
+      btnModeFast.addEventListener('click', () => {
+        setActiveButton('.btn-ctrl[id^="mode-"]', 'mode-fast');
+        state.clockMode = 'fast';
+        showToast('Fast Demo Mode Activated');
+        updateHUDStats();
+      });
+    }
 
     // 4. Quick Toggles
-    document.getElementById('toggle-seconds').addEventListener('click', function () {
-      state.showSeconds = !state.showSeconds;
-      this.classList.toggle('active', state.showSeconds);
-      updateColonPositions();
-      showToast(state.showSeconds ? 'Seconds Display Enabled (HH:MM:SS)' : '4-Digit Mode (HH:MM)');
-    });
+    const toggleSec = document.getElementById('toggle-seconds');
+    if (toggleSec) {
+      toggleSec.addEventListener('click', function () {
+        state.showSeconds = !state.showSeconds;
+        this.classList.toggle('active', state.showSeconds);
+        updateColonPositions();
+        showToast(state.showSeconds ? 'Seconds Display Enabled (HH:MM:SS)' : '4-Digit Mode (HH:MM)');
+      });
+    }
 
-    document.getElementById('toggle-12h').addEventListener('click', function () {
-      state.timeFormat24h = !state.timeFormat24h;
-      this.querySelector('.badge-text').textContent = state.timeFormat24h ? '24H' : '12H';
-      showToast(state.timeFormat24h ? '24-Hour Format' : '12-Hour AM/PM Format');
-    });
+    const toggle12h = document.getElementById('toggle-12h');
+    if (toggle12h) {
+      toggle12h.addEventListener('click', function () {
+        state.timeFormat24h = !state.timeFormat24h;
+        const badge = this.querySelector('.badge-text');
+        if (badge) badge.textContent = state.timeFormat24h ? '24H' : '12H';
+        showToast(state.timeFormat24h ? '24-Hour Format' : '12-Hour AM/PM Format');
+      });
+    }
 
-    document.getElementById('toggle-sound').addEventListener('click', function () {
-      initAudio();
-      state.soundEnabled = !state.soundEnabled;
-      this.classList.toggle('active', state.soundEnabled);
-      const icon = document.getElementById('sound-icon');
-      icon.className = state.soundEnabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark';
-      showToast(state.soundEnabled ? 'Sound FX Enabled' : 'Sound Muted');
-    });
+    const toggleSound = document.getElementById('toggle-sound');
+    if (toggleSound) {
+      toggleSound.addEventListener('click', function () {
+        initAudio();
+        state.soundEnabled = !state.soundEnabled;
+        this.classList.toggle('active', state.soundEnabled);
+        const icon = document.getElementById('sound-icon');
+        if (icon) icon.className = state.soundEnabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark';
+        showToast(state.soundEnabled ? 'Sound FX Enabled' : 'Sound Muted');
+      });
+    }
 
     // 5. Modals Open/Close
     const manualModal = document.getElementById('manual-modal');
-    document.getElementById('btn-open-scrubber').addEventListener('click', () => {
-      manualModal.classList.remove('hidden');
-    });
-    document.getElementById('close-manual-modal').addEventListener('click', () => {
-      manualModal.classList.add('hidden');
-    });
+    const btnOpenScrubber = document.getElementById('btn-open-scrubber');
+    if (btnOpenScrubber && manualModal) {
+      btnOpenScrubber.addEventListener('click', () => manualModal.classList.remove('hidden'));
+    }
+    const btnCloseManual = document.getElementById('close-manual-modal');
+    if (btnCloseManual && manualModal) {
+      btnCloseManual.addEventListener('click', () => manualModal.classList.add('hidden'));
+    }
 
     const settingsModal = document.getElementById('settings-modal');
-    document.getElementById('btn-open-settings').addEventListener('click', () => {
-      settingsModal.classList.remove('hidden');
-    });
-    document.getElementById('close-settings-modal').addEventListener('click', () => {
-      settingsModal.classList.add('hidden');
-    });
+    const btnOpenSettings = document.getElementById('btn-open-settings');
+    if (btnOpenSettings && settingsModal) {
+      btnOpenSettings.addEventListener('click', () => settingsModal.classList.remove('hidden'));
+    }
+    const btnCloseSettings = document.getElementById('close-settings-modal');
+    if (btnCloseSettings && settingsModal) {
+      btnCloseSettings.addEventListener('click', () => settingsModal.classList.add('hidden'));
+    }
 
     const helpModal = document.getElementById('help-modal');
-    document.getElementById('btn-open-help').addEventListener('click', () => {
-      helpModal.classList.remove('hidden');
-    });
-    document.getElementById('close-help-modal').addEventListener('click', () => {
-      helpModal.classList.add('hidden');
-    });
+    const btnOpenHelp = document.getElementById('btn-open-help');
+    if (btnOpenHelp && helpModal) {
+      btnOpenHelp.addEventListener('click', () => helpModal.classList.remove('hidden'));
+    }
+    const btnCloseHelp = document.getElementById('close-help-modal');
+    if (btnCloseHelp && helpModal) {
+      btnCloseHelp.addEventListener('click', () => helpModal.classList.add('hidden'));
+    }
 
     // Click outside modal card to close
     [manualModal, settingsModal, helpModal].forEach(modal => {
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.classList.add('hidden');
-      });
+      if (modal) {
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) modal.classList.add('hidden');
+        });
+      }
     });
 
     // 6. Manual Time Scrubbers
@@ -1647,55 +1878,76 @@
     const sMin = document.getElementById('slider-min');
     const sSec = document.getElementById('slider-sec');
 
-    sHour.addEventListener('input', (e) => {
-      document.getElementById('val-hour').textContent = e.target.value;
-      state.manualHour = parseInt(e.target.value);
-    });
-    sMin.addEventListener('input', (e) => {
-      document.getElementById('val-min').textContent = e.target.value;
-      state.manualMin = parseInt(e.target.value);
-    });
-    sSec.addEventListener('input', (e) => {
-      document.getElementById('val-sec').textContent = e.target.value;
-      state.manualSec = parseInt(e.target.value);
-    });
+    if (sHour) {
+      sHour.addEventListener('input', (e) => {
+        const valEl = document.getElementById('val-hour');
+        if (valEl) valEl.textContent = e.target.value;
+        state.manualHour = parseInt(e.target.value);
+      });
+    }
+    if (sMin) {
+      sMin.addEventListener('input', (e) => {
+        const valEl = document.getElementById('val-min');
+        if (valEl) valEl.textContent = e.target.value;
+        state.manualMin = parseInt(e.target.value);
+      });
+    }
+    if (sSec) {
+      sSec.addEventListener('input', (e) => {
+        const valEl = document.getElementById('val-sec');
+        if (valEl) valEl.textContent = e.target.value;
+        state.manualSec = parseInt(e.target.value);
+      });
+    }
 
-    document.getElementById('btn-apply-manual').addEventListener('click', () => {
-      state.clockMode = 'fast';
-      setActiveButton('.btn-ctrl[id^="mode-"]', 'mode-fast');
-      manualModal.classList.add('hidden');
-      showToast('Manual Time Applied');
-    });
+    const btnApplyManual = document.getElementById('btn-apply-manual');
+    if (btnApplyManual) {
+      btnApplyManual.addEventListener('click', () => {
+        state.clockMode = 'fast';
+        setActiveButton('.btn-ctrl[id^="mode-"]', 'mode-fast');
+        if (manualModal) manualModal.classList.add('hidden');
+        showToast('Manual Time Applied');
+      });
+    }
 
-    document.getElementById('btn-reset-live').addEventListener('click', () => {
-      state.clockMode = 'live';
-      setActiveButton('.btn-ctrl[id^="mode-"]', 'mode-live');
-      manualModal.classList.add('hidden');
-      showToast('Reverted to Live System Clock');
-    });
+    const btnResetLive = document.getElementById('btn-reset-live');
+    if (btnResetLive) {
+      btnResetLive.addEventListener('click', () => {
+        state.clockMode = 'live';
+        setActiveButton('.btn-ctrl[id^="mode-"]', 'mode-live');
+        if (manualModal) manualModal.classList.add('hidden');
+        showToast('Reverted to Live System Clock');
+      });
+    }
 
     // 7. Word Speller Buttons
     document.querySelectorAll('.btn-word').forEach(btn => {
       btn.addEventListener('click', () => {
         const word = btn.getAttribute('data-word');
         state.clockMode = 'word';
-        manualModal.classList.add('hidden');
-        document.getElementById('hud-time-digits').textContent = word;
+        if (manualModal) manualModal.classList.add('hidden');
+        const digitsEl = document.getElementById('hud-time-digits');
+        if (digitsEl) digitsEl.textContent = word;
         updateClockDisplay(word.replace(':', ''));
         showToast(`Spelling "${word}" on tarmac`);
       });
     });
 
-    document.getElementById('btn-spell-custom').addEventListener('click', () => {
-      const input = document.getElementById('custom-word-input').value.trim().toUpperCase();
-      if (input) {
-        state.clockMode = 'word';
-        manualModal.classList.add('hidden');
-        document.getElementById('hud-time-digits').textContent = input;
-        updateClockDisplay(input.replace(':', ''));
-        showToast(`Spelling "${input}"`);
-      }
-    });
+    const btnSpellCustom = document.getElementById('btn-spell-custom');
+    if (btnSpellCustom) {
+      btnSpellCustom.addEventListener('click', () => {
+        const input = document.getElementById('custom-word-input');
+        if (input && input.value.trim()) {
+          const txt = input.value.trim().toUpperCase();
+          state.clockMode = 'word';
+          if (manualModal) manualModal.classList.add('hidden');
+          const digitsEl = document.getElementById('hud-time-digits');
+          if (digitsEl) digitsEl.textContent = txt;
+          updateClockDisplay(txt.replace(':', ''));
+          showToast(`Spelling "${txt}"`);
+        }
+      });
+    }
 
     // 8. Settings Customization (Paint colors, Demo speed, Toggles)
     document.querySelectorAll('.paint-swatch').forEach(swatch => {
@@ -1719,39 +1971,55 @@
       });
     });
 
-    document.getElementById('toggle-cones').addEventListener('change', (e) => {
-      state.toggleCones = e.target.checked;
-      conesGroup.visible = state.toggleCones;
-    });
+    const toggleConesEl = document.getElementById('toggle-cones');
+    if (toggleConesEl) {
+      toggleConesEl.addEventListener('change', (e) => {
+        state.toggleCones = e.target.checked;
+        if (conesGroup) conesGroup.visible = state.toggleCones;
+      });
+    }
 
-    document.getElementById('toggle-skidmarks').addEventListener('change', (e) => {
-      state.toggleSkidmarks = e.target.checked;
-      skidmarksGroup.visible = state.toggleSkidmarks;
-    });
+    const toggleSkidEl = document.getElementById('toggle-skidmarks');
+    if (toggleSkidEl) {
+      toggleSkidEl.addEventListener('change', (e) => {
+        state.toggleSkidmarks = e.target.checked;
+        if (skidmarksGroup) skidmarksGroup.visible = state.toggleSkidmarks;
+      });
+    }
 
-    document.getElementById('toggle-floodlights').addEventListener('change', (e) => {
-      state.toggleFloodlights = e.target.checked;
-      applyLightingMode(state.lightingMode);
-    });
+    const toggleFloodEl = document.getElementById('toggle-floodlights');
+    if (toggleFloodEl) {
+      toggleFloodEl.addEventListener('change', (e) => {
+        state.toggleFloodlights = e.target.checked;
+        applyLightingMode(state.lightingMode);
+      });
+    }
 
-    document.getElementById('toggle-damping').addEventListener('change', (e) => {
-      state.toggleDamping = e.target.checked;
-      if (controls) controls.enableDamping = state.toggleDamping;
-    });
+    const toggleDampEl = document.getElementById('toggle-damping');
+    if (toggleDampEl) {
+      toggleDampEl.addEventListener('change', (e) => {
+        state.toggleDamping = e.target.checked;
+        if (controls) controls.enableDamping = state.toggleDamping;
+      });
+    }
 
-    document.getElementById('slider-volume').addEventListener('input', (e) => {
-      state.masterVolume = e.target.value / 100;
-      document.getElementById('val-volume').textContent = `${e.target.value}%`;
-      if (masterGainNode && audioCtx) masterGainNode.gain.setValueAtTime(state.masterVolume, audioCtx.currentTime);
-    });
+    const sliderVolEl = document.getElementById('slider-volume');
+    if (sliderVolEl) {
+      sliderVolEl.addEventListener('input', (e) => {
+        state.masterVolume = e.target.value / 100;
+        const valVol = document.getElementById('val-volume');
+        if (valVol) valVol.textContent = `${e.target.value}%`;
+        if (masterGainNode && audioCtx) masterGainNode.gain.setValueAtTime(state.masterVolume, audioCtx.currentTime);
+      });
+    }
 
     // 9. Keyboard Shortcuts
     window.addEventListener('keydown', (e) => {
-      if (e.target.tagName === 'INPUT') return;
+      if (e.target && e.target.tagName === 'INPUT') return;
 
       switch (e.key) {
-        case '1': setCameraPreset('aerial'); break;
-        case '2': setCameraPreset('perspective'); break;
+        case '1': setCameraPreset('perspective'); break;
+        case '2': setCameraPreset('aerial'); break;
         case '3': setCameraPreset('follow'); break;
         case '4': setCameraPreset('orbit'); break;
         case 'n':
@@ -1776,11 +2044,13 @@
           break;
         case 's':
         case 'S':
-          document.getElementById('toggle-sound').click();
+          const sndBtn = document.getElementById('toggle-sound');
+          if (sndBtn) sndBtn.click();
           break;
         case 'h':
         case 'H':
-          document.getElementById('hud-overlay').classList.toggle('hidden-hud');
+          const hudOverlay = document.getElementById('hud-overlay');
+          if (hudOverlay) hudOverlay.classList.toggle('hidden-hud');
           break;
       }
     });
@@ -1796,6 +2066,7 @@
   }
 
   function onWindowResize() {
+    if (!camera || !renderer) return;
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -1810,7 +2081,8 @@
     const dayStr = days[now.getDay()];
     const monStr = months[now.getMonth()];
     const dateStr = now.getDate();
-    document.getElementById('hud-date').textContent = `${dayStr}, ${monStr} ${dateStr}`;
+    const dateEl = document.getElementById('hud-date');
+    if (dateEl) dateEl.textContent = `${dayStr}, ${monStr} ${dateStr}`;
   }
 
   // --- Main Initialization ---
@@ -1818,14 +2090,16 @@
   function init() {
     const container = document.getElementById('canvas-container');
 
-    // 1. Three.js Scene, Camera, Renderer
+    // 1. Three.js Scene, Perspective Camera, Renderer
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0c1322);
+    scene.background = new THREE.Color(0x090e18);
 
-    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 500);
-    camera.position.copy(CONFIG.camera.aerial.pos);
-    camera.up.copy(CONFIG.camera.aerial.up);
-    camera.lookAt(CONFIG.camera.aerial.target);
+    // Default to high-angle isometric perspective (y: 48, z: 46) matching installation photo angle
+    camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 500);
+    camera.position.copy(CONFIG.camera.perspective.pos);
+    camera.up.copy(CONFIG.camera.perspective.up);
+    camera.lookAt(CONFIG.camera.perspective.target);
+    currentLookAt.copy(CONFIG.camera.perspective.target);
 
     renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -1833,7 +2107,7 @@
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
+    renderer.toneMappingExposure = 1.15;
     container.appendChild(renderer.domElement);
 
     // 2. OrbitControls
@@ -1847,7 +2121,7 @@
       controls.target.set(0, 0, 0);
     }
 
-    // 3. Build Scene Elements
+    // 3. Build Scene Elements & Lighting
     setupLighting();
     buildEnvironment();
     initStagingAndFleet();
@@ -1865,8 +2139,12 @@
     const mStr = (m < 10 ? '0' + m : '' + m);
     const sStr = (s < 10 ? '0' + s : '' + s);
     const initialString = state.showSeconds ? (hStr + mStr + sStr) : (hStr + mStr);
-    document.getElementById('hud-time-digits').textContent = state.showSeconds ? `${hStr}:${mStr}:${sStr}` : `${hStr}:${mStr}`;
-    document.getElementById('hud-ampm').textContent = h >= 12 ? 'PM' : 'AM';
+
+    const timeDigitsEl = document.getElementById('hud-time-digits');
+    if (timeDigitsEl) timeDigitsEl.textContent = state.showSeconds ? `${hStr}:${mStr}:${sStr}` : `${hStr}:${mStr}`;
+    const ampmEl = document.getElementById('hud-ampm');
+    if (ampmEl) ampmEl.textContent = h >= 12 ? 'PM' : 'AM';
+
     updateClockDisplay(initialString);
 
     // 6. Start Render Loop
