@@ -968,14 +968,20 @@
   }
 
   function updateColonPositions() {
+    if (state.clockMode === 'word') {
+      colonMarkers.forEach(c => {
+        c.group.visible = false;
+      });
+      return;
+    }
     colonMarkers.forEach(c => {
       if (state.showSeconds) {
         // Show left & right colons, hide mid colon
         const visible = c.cfgId === 'left' || c.cfgId === 'right';
         c.group.visible = visible;
       } else {
-        // Show mid colon, hide left & right colons
-        const visible = c.cfgId === 'mid';
+        // When seconds are dropped: keep colon 1 (left colon) visible, hide right & mid colons
+        const visible = c.cfgId === 'left';
         c.group.visible = visible;
       }
     });
@@ -1168,7 +1174,7 @@
   // --- 7-Segment Slot Position Calculator ---
 
   function getDigitCenter(digitIdx, totalDigits) {
-    if (totalDigits === 6) {
+    if (totalDigits === 6 || (state.clockMode !== 'word' && totalDigits <= 6)) {
       return new THREE.Vector3(DIGIT_LAYOUT.digits6[digitIdx] !== undefined ? DIGIT_LAYOUT.digits6[digitIdx] : 0, 0, 0);
     } else if (totalDigits === 4) {
       return new THREE.Vector3(DIGIT_LAYOUT.digits4[digitIdx] !== undefined ? DIGIT_LAYOUT.digits4[digitIdx] : 0, 0, 0);
@@ -1433,7 +1439,13 @@
     if (targetString === state.currentDisplayedString) return;
     state.currentDisplayedString = targetString;
 
-    const chars = targetString.split('');
+    // Pad clock string to 6 characters if in clock mode (not word mode) and length < 6
+    let displayStr = targetString;
+    if (state.clockMode !== 'word' && displayStr.length < 6) {
+      displayStr = displayStr.padEnd(6, ' ');
+    }
+
+    const chars = displayStr.split('');
     const totalDigits = chars.length;
 
     // Build map of required segments for this string
@@ -1448,62 +1460,123 @@
       });
     });
 
-    let staggerCount = 0;
-    const STAGGER_INTERVAL = 0.16; // 160ms stagger per vehicle
+    const newActiveAssignments = new Map();
+    const assignedCarsSet = new Set();
+    const dispatches = [];
 
-    // 1. Determine segments to deactivate
-    const segmentsToDeactivate = [];
-    activeAssignments.forEach((car, key) => {
-      if (!requiredSegments.has(key)) {
-        segmentsToDeactivate.push(key);
-      }
-    });
+    // Find all digit indices involved
+    const currentDigitIndices = Array.from(activeAssignments.keys()).map(k => parseInt(k.split('_')[0], 10));
+    const maxDigitIdx = Math.max(
+      totalDigits,
+      currentDigitIndices.length > 0 ? Math.max(...currentDigitIndices) + 1 : 0,
+      6
+    );
 
-    // 2. Dispatch cars leaving deactivated segments back to available staging bays
-    segmentsToDeactivate.forEach(key => {
-      const car = activeAssignments.get(key);
-      activeAssignments.delete(key);
+    const surplusCars = [];
+    const unfilledSlots = [];
 
-      const availableBays = stagingBays.filter(b => b.occupiedBy === null);
-      if (availableBays.length > 0 && car) {
-        // Pick closest available bay to minimize cross traffic
-        availableBays.sort((a, b) => car.mesh.position.distanceTo(a.pos) - car.mesh.position.distanceTo(b.pos));
-        const emptyBay = availableBays[0];
-        emptyBay.occupiedBy = car;
-        dispatchCar(car, emptyBay.pos, emptyBay.yaw, { type: 'staging', id: emptyBay.id }, staggerCount * STAGGER_INTERVAL);
-        staggerCount++;
-      }
-    });
+    // Process each digit position independently for segment preservation and local morphing
+    for (let d = 0; d < maxDigitIdx; d++) {
+      const reqInDigit = [];
+      requiredSegments.forEach((item) => {
+        if (item.digitIdx === d) reqInDigit.push(item);
+      });
 
-    // 3. Handle already active segments that moved (e.g. 4-digit to 6-digit shift)
-    requiredSegments.forEach((item, key) => {
-      if (activeAssignments.has(key)) {
-        const car = activeAssignments.get(key);
-        if (car && car.targetPos && car.targetPos.distanceTo(item.transform.pos) > 0.4) {
-          dispatchCar(car, item.transform.pos, item.transform.yaw, { type: 'segment', key: item.key }, staggerCount * STAGGER_INTERVAL);
-          staggerCount++;
+      const currInDigit = [];
+      activeAssignments.forEach((car, key) => {
+        const digitIdx = parseInt(key.split('_')[0], 10);
+        if (digitIdx === d && car) {
+          currInDigit.push({ key, seg: key.split('_')[1], car });
+        }
+      });
+
+      const preservedKeys = new Set();
+
+      // 1. Segment Preservation:
+      // Cars already sitting in segments that remain active stay in their exact spot with 0 movement.
+      reqInDigit.forEach(reqItem => {
+        const matchingCurr = currInDigit.find(c => c.key === reqItem.key);
+        if (matchingCurr) {
+          const car = matchingCurr.car;
+          preservedKeys.add(reqItem.key);
+          newActiveAssignments.set(reqItem.key, car);
+          assignedCarsSet.add(car);
+
+          // Only dispatch if world position actually moved (e.g. layout shift)
+          if (car.targetPos && car.targetPos.distanceTo(reqItem.transform.pos) > 0.4) {
+            dispatches.push({
+              car,
+              pos: reqItem.transform.pos,
+              yaw: reqItem.transform.yaw,
+              slotInfo: { type: 'segment', key: reqItem.key }
+            });
+          }
+        }
+      });
+
+      // 2. Identify freed cars and needed slots in this digit
+      const freedInDigit = currInDigit.filter(c => !preservedKeys.has(c.key));
+      const neededInDigit = reqInDigit.filter(r => !preservedKeys.has(r.key));
+
+      // 3. Local segment-to-segment morphing:
+      // Greedily match the closest freed car in this digit to each needed segment
+      while (freedInDigit.length > 0 && neededInDigit.length > 0) {
+        let bestDist = Infinity;
+        let bestFreedIdx = -1;
+        let bestNeededIdx = -1;
+
+        for (let f = 0; f < freedInDigit.length; f++) {
+          const carPos = freedInDigit[f].car.mesh.position;
+          for (let n = 0; n < neededInDigit.length; n++) {
+            const slotPos = neededInDigit[n].transform.pos;
+            const dist = carPos.distanceTo(slotPos);
+            if (dist < bestDist) {
+              bestDist = dist;
+              bestFreedIdx = f;
+              bestNeededIdx = n;
+            }
+          }
+        }
+
+        if (bestFreedIdx !== -1 && bestNeededIdx !== -1) {
+          const freed = freedInDigit.splice(bestFreedIdx, 1)[0];
+          const needed = neededInDigit.splice(bestNeededIdx, 1)[0];
+          const car = freed.car;
+
+          newActiveAssignments.set(needed.key, car);
+          assignedCarsSet.add(car);
+
+          dispatches.push({
+            car,
+            pos: needed.transform.pos,
+            yaw: needed.transform.yaw,
+            slotInfo: { type: 'segment', key: needed.key }
+          });
+        } else {
+          break;
         }
       }
-    });
 
-    // 4. Dispatch cars from staging bays to new segment slots
-    const segmentsToActivate = [];
-    requiredSegments.forEach((data, key) => {
-      if (!activeAssignments.has(key)) {
-        segmentsToActivate.push({ key, ...data });
-      }
-    });
+      // Any remaining freed cars in this digit become surplus
+      freedInDigit.forEach(f => surplusCars.push(f.car));
+      // Any remaining needed slots in this digit need cars from staging
+      neededInDigit.forEach(n => unfilledSlots.push(n));
+    }
 
-    segmentsToActivate.forEach(item => {
-      const availableStagingCars = carFleet.filter(c => c.state === 'idle' && c.currentSlot && c.currentSlot.type === 'staging');
+    // 4. Staging Handling - Fetch nearest available cars from staging for unfilled slots
+    unfilledSlots.forEach(needed => {
+      const stagingCars = carFleet.filter(c => 
+        !assignedCarsSet.has(c) && 
+        !surplusCars.includes(c) &&
+        (c.currentSlot && c.currentSlot.type === 'staging')
+      );
+
       let candidateCar = null;
-
-      if (availableStagingCars.length > 0) {
-        // Pick closest staging car to target slot
-        availableStagingCars.sort((a, b) => a.mesh.position.distanceTo(item.transform.pos) - b.mesh.position.distanceTo(item.transform.pos));
-        candidateCar = availableStagingCars[0];
+      if (stagingCars.length > 0) {
+        stagingCars.sort((a, b) => a.mesh.position.distanceTo(needed.transform.pos) - b.mesh.position.distanceTo(needed.transform.pos));
+        candidateCar = stagingCars[0];
       } else {
-        candidateCar = carFleet.find(c => c.state === 'idle' && ![...activeAssignments.values()].includes(c));
+        candidateCar = carFleet.find(c => !assignedCarsSet.has(c) && !surplusCars.includes(c));
       }
 
       if (candidateCar) {
@@ -1511,11 +1584,51 @@
           const bay = stagingBays.find(b => b.id === candidateCar.currentSlot.id);
           if (bay) bay.occupiedBy = null;
         }
+        candidateCar.currentSlot = null;
 
-        activeAssignments.set(item.key, candidateCar);
-        dispatchCar(candidateCar, item.transform.pos, item.transform.yaw, { type: 'segment', key: item.key }, staggerCount * STAGGER_INTERVAL);
-        staggerCount++;
+        newActiveAssignments.set(needed.key, candidateCar);
+        assignedCarsSet.add(candidateCar);
+
+        dispatches.push({
+          car: candidateCar,
+          pos: needed.transform.pos,
+          yaw: needed.transform.yaw,
+          slotInfo: { type: 'segment', key: needed.key }
+        });
       }
+    });
+
+    // 5. Staging Handling - Surplus cars drive smoothly back to available staging bays
+    surplusCars.forEach(car => {
+      const availableBays = stagingBays.filter(b => b.occupiedBy === null);
+      if (availableBays.length > 0 && car) {
+        availableBays.sort((a, b) => car.mesh.position.distanceTo(a.pos) - car.mesh.position.distanceTo(b.pos));
+        const emptyBay = availableBays[0];
+        emptyBay.occupiedBy = car;
+        car.currentSlot = null;
+
+        dispatches.push({
+          car,
+          pos: emptyBay.pos,
+          yaw: emptyBay.yaw,
+          slotInfo: { type: 'staging', id: emptyBay.id }
+        });
+      }
+    });
+
+    // Update activeAssignments Map
+    activeAssignments.clear();
+    newActiveAssignments.forEach((car, key) => {
+      activeAssignments.set(key, car);
+    });
+
+    // Execute dispatches with smooth staggering
+    let staggerCount = 0;
+    const STAGGER_INTERVAL = 0.14; // 140ms stagger per vehicle
+
+    dispatches.forEach(d => {
+      dispatchCar(d.car, d.pos, d.yaw, d.slotInfo, staggerCount * STAGGER_INTERVAL);
+      staggerCount++;
     });
 
     // Update UI Stats
@@ -1593,7 +1706,7 @@
       const sStr = secs < 10 ? '0' + secs : '' + secs;
 
       const timeHUD = state.showSeconds ? `${hStr}:${mStr}:${sStr}` : `${hStr}:${mStr}`;
-      const timeClockString = state.showSeconds ? `${hStr}${mStr}${sStr}` : `${hStr}${mStr}`;
+      const timeClockString = state.showSeconds ? `${hStr}${mStr}${sStr}` : `${hStr}${mStr}  `;
 
       const timeDigitsEl = document.getElementById('hud-time-digits');
       if (timeDigitsEl) timeDigitsEl.textContent = timeHUD;
@@ -1629,7 +1742,7 @@
       const sStr = s < 10 ? '0' + s : '' + s;
 
       const timeHUD = state.showSeconds ? `${hStr}:${mStr}:${sStr}` : `${hStr}:${mStr}`;
-      const timeClockString = state.showSeconds ? `${hStr}${mStr}${sStr}` : `${hStr}${mStr}`;
+      const timeClockString = state.showSeconds ? `${hStr}${mStr}${sStr}` : `${hStr}${mStr}  `;
 
       const timeDigitsEl = document.getElementById('hud-time-digits');
       if (timeDigitsEl) timeDigitsEl.textContent = timeHUD;
@@ -2031,7 +2144,7 @@
 
   function updateHUDStats() {
     const activeCount = activeAssignments.size;
-    const stagingCount = carFleet.filter(c => c.currentSlot && c.currentSlot.type === 'staging').length;
+    const stagingCount = carFleet.length - activeCount;
 
     const activeEl = document.getElementById('stat-active-cars');
     if (activeEl) activeEl.textContent = activeCount;
@@ -2119,6 +2232,7 @@
       toggleSec.addEventListener('click', function () {
         state.showSeconds = !state.showSeconds;
         this.classList.toggle('active', state.showSeconds);
+        state.currentDisplayedString = '';
         updateColonPositions();
         showToast(state.showSeconds ? 'Seconds Display Enabled (HH:MM:SS)' : '4-Digit Mode (HH:MM)');
       });
@@ -2516,7 +2630,7 @@
     const hStr = (h < 10 ? '0' + h : '' + h);
     const mStr = (m < 10 ? '0' + m : '' + m);
     const sStr = (s < 10 ? '0' + s : '' + s);
-    const initialString = state.showSeconds ? (hStr + mStr + sStr) : (hStr + mStr);
+    const initialString = state.showSeconds ? (hStr + mStr + sStr) : (hStr + mStr + '  ');
 
     const timeDigitsEl = document.getElementById('hud-time-digits');
     if (timeDigitsEl) timeDigitsEl.textContent = state.showSeconds ? `${hStr}:${mStr}:${sStr}` : `${hStr}:${mStr}`;
