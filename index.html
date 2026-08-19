@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Car Digital Clock — Aerial Art Installation</title>
+  <!-- Google Fonts & Font Awesome Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Three.js and OrbitControls from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+  <!-- 3D WebGL Canvas Container -->
+  <div id="canvas-container"></div>
+
+  <!-- Main Glassmorphism HUD Overlay -->
+  <div id="hud-overlay">
+    <!-- Top Header Bar -->
+    <header class="hud-header">
+      <div class="brand-section">
+        <div class="logo-badge">
+          <i class="fa-solid fa-car-side"></i>
+        </div>
+        <div class="brand-text">
+          <h1>CAR CLOCK 3D</h1>
+          <span class="sub-label">AERIAL INSTALLATION ART</span>
+        </div>
+      </div>
+
+      <!-- Live Digital Clock Display -->
+      <div class="digital-readout-card">
+        <div class="digital-time-wrapper">
+          <span id="hud-time-digits" class="digital-time">18:57:00</span>
+          <span id="hud-ampm" class="ampm-badge">PM</span>
+        </div>
+        <div class="digital-date-wrapper">
+          <span id="hud-date" class="digital-date">WEDNESDAY, AUG 19</span>
+          <span class="live-dot" title="Live Synced"></span>
+        </div>
+      </div>
+
+      <!-- Fleet Status Stats -->
+      <div class="fleet-stats-card">
+        <div class="stat-pill">
+          <i class="fa-solid fa-square-parking text-accent"></i>
+          <div class="stat-info">
+            <span class="stat-val" id="stat-active-cars">24</span>
+            <span class="stat-lbl">Active Digits</span>
+          </div>
+        </div>
+        <div class="stat-pill">
+          <i class="fa-solid fa-warehouse text-muted"></i>
+          <div class="stat-info">
+            <span class="stat-val" id="stat-staging-cars">16</span>
+            <span class="stat-lbl">In Staging</span>
+          </div>
+        </div>
+        <div class="stat-pill" id="stat-speed-pill">
+          <i class="fa-solid fa-gauge-high text-warning"></i>
+          <div class="stat-info">
+            <span class="stat-val" id="stat-sim-mode">LIVE</span>
+            <span class="stat-lbl">Clock Mode</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Side Navigation / Notification Toast -->
+    <div id="toast-notification" class="toast-notification">
+      <i class="fa-solid fa-circle-info"></i>
+      <span id="toast-text">Aerial Top-Down View Activated</span>
+    </div>
+
+    <!-- Active Car Tracking HUD (When in Follow Cam) -->
+    <div id="follow-cam-card" class="follow-cam-card hidden">
+      <div class="car-tracking-header">
+        <span class="pulse-indicator"></span>
+        <span class="tracking-title">TRACKING VEHICLE #<span id="tracked-car-id">07</span></span>
+      </div>
+      <div class="tracking-details">
+        <span id="tracked-car-action">Transit: Staging Bay 4 &rarr; Digit 2 Segment [g]</span>
+        <span id="tracked-car-speed">Speed: 24 km/h</span>
+      </div>
+    </div>
+
+    <!-- Bottom Controls Deck -->
+    <footer class="hud-footer">
+      <div class="controls-container">
+        <!-- Camera View Modes -->
+        <div class="control-group">
+          <span class="group-label"><i class="fa-solid fa-video"></i> CAMERA</span>
+          <div class="btn-pill-group">
+            <button class="btn-ctrl active" id="cam-aerial" data-tooltip="Top-down drone view (Photo angle)">
+              <i class="fa-solid fa-plane-arrival"></i> <span>Aerial View</span>
+            </button>
+            <button class="btn-ctrl" id="cam-perspective" data-tooltip="Cinematic 3D angled view">
+              <i class="fa-solid fa-cube"></i> <span>Perspective 3D</span>
+            </button>
+            <button class="btn-ctrl" id="cam-follow" data-tooltip="Chase camera following a moving car">
+              <i class="fa-solid fa-crosshairs"></i> <span>Follow Cam</span>
+            </button>
+            <button class="btn-ctrl" id="cam-orbit" data-tooltip="Free 360 orbit camera">
+              <i class="fa-solid fa-arrows-spin"></i> <span>Free Orbit</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Lighting Modes -->
+        <div class="control-group">
+          <span class="group-label"><i class="fa-solid fa-sun"></i> LIGHTING</span>
+          <div class="btn-pill-group">
+            <button class="btn-ctrl active" id="light-day" data-tooltip="Bright daylight with soft shadows">
+              <i class="fa-solid fa-sun"></i> <span>Day</span>
+            </button>
+            <button class="btn-ctrl" id="light-sunset" data-tooltip="Golden hour sunset glow">
+              <i class="fa-solid fa-cloud-sun"></i> <span>Sunset</span>
+            </button>
+            <button class="btn-ctrl" id="light-night" data-tooltip="Night with headlights & floodlights">
+              <i class="fa-solid fa-moon"></i> <span>Night</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Clock Simulation Modes -->
+        <div class="control-group">
+          <span class="group-label"><i class="fa-solid fa-clock"></i> MODES</span>
+          <div class="btn-pill-group">
+            <button class="btn-ctrl active" id="mode-live" data-tooltip="Real-time system clock">
+              <i class="fa-solid fa-play"></i> <span>Live</span>
+            </button>
+            <button class="btn-ctrl" id="mode-fast" data-tooltip="Fast-forward: change time rapidly">
+              <i class="fa-solid fa-forward-fast"></i> <span>Fast Demo</span>
+            </button>
+            <button class="btn-ctrl" id="btn-open-scrubber" data-tooltip="Manual time setter & text spells">
+              <i class="fa-solid fa-sliders"></i> <span>Manual / Words</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick Toggles -->
+        <div class="control-group aux-group">
+          <div class="btn-pill-group">
+            <button class="btn-ctrl icon-only active" id="toggle-seconds" data-tooltip="Toggle Seconds Display (HH:MM:SS vs HH:MM)">
+              <span class="badge-text">:SS</span>
+            </button>
+            <button class="btn-ctrl icon-only" id="toggle-12h" data-tooltip="Toggle 12h / 24h format">
+              <span class="badge-text">24H</span>
+            </button>
+            <button class="btn-ctrl icon-only" id="toggle-sound" data-tooltip="Toggle Engine & Tire Sounds">
+              <i class="fa-solid fa-volume-xmark" id="sound-icon"></i>
+            </button>
+            <button class="btn-ctrl icon-only" id="btn-open-settings" data-tooltip="Open Settings & Customizer">
+              <i class="fa-solid fa-gear"></i>
+            </button>
+            <button class="btn-ctrl icon-only" id="btn-open-help" data-tooltip="Keyboard Shortcuts & About">
+              <i class="fa-solid fa-circle-question"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Manual Time Scrubber & Word Speller Modal / Drawer -->
+  <div id="manual-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-sliders"></i> Manual Time & Words</h2>
+        <button class="modal-close" id="close-manual-modal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <!-- Time Scrubber Section -->
+        <div class="control-block">
+          <h3><i class="fa-solid fa-clock"></i> Scrub Time</h3>
+          <p class="section-desc">Drag sliders to manually set the clock and watch cars rearrange instantly.</p>
+          <div class="scrubber-row">
+            <div class="scrubber-item">
+              <label for="slider-hour">Hour: <span id="val-hour" class="scrubber-val">18</span></label>
+              <input type="range" id="slider-hour" min="0" max="23" value="18">
+            </div>
+            <div class="scrubber-item">
+              <label for="slider-min">Minute: <span id="val-min" class="scrubber-val">57</span></label>
+              <input type="range" id="slider-min" min="0" max="59" value="57">
+            </div>
+            <div class="scrubber-item">
+              <label for="slider-sec">Second: <span id="val-sec" class="scrubber-val">00</span></label>
+              <input type="range" id="slider-sec" min="0" max="59" value="0">
+            </div>
+          </div>
+          <div class="scrubber-actions">
+            <button class="btn-action" id="btn-apply-manual"><i class="fa-solid fa-check"></i> Set Clock</button>
+            <button class="btn-action secondary" id="btn-reset-live"><i class="fa-solid fa-rotate-left"></i> Revert to Live</button>
+          </div>
+        </div>
+
+        <!-- Word / Pattern Speller Section -->
+        <div class="control-block">
+          <h3><i class="fa-solid fa-font"></i> 7-Segment Word Presets</h3>
+          <p class="section-desc">Have the cars spell words or test patterns on the tarmac!</p>
+          <div class="preset-words-grid">
+            <button class="btn-word" data-word="AGY">AGY</button>
+            <button class="btn-word" data-word="COOL">COOL</button>
+            <button class="btn-word" data-word="PARK">PARK</button>
+            <button class="btn-word" data-word="2026">2026</button>
+            <button class="btn-word" data-word="88:88">88:88 (ALL)</button>
+            <button class="btn-word" data-word="00:00">00:00</button>
+            <button class="btn-word" data-word="HELP">HELP</button>
+            <button class="btn-word" data-word="STOP">STOP</button>
+          </div>
+          <div class="custom-word-input-row">
+            <input type="text" id="custom-word-input" maxlength="6" placeholder="Custom text (e.g. BEER, 1234)">
+            <button class="btn-action" id="btn-spell-custom"><i class="fa-solid fa-car"></i> Park Text</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings & Customizer Modal -->
+  <div id="settings-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-gear"></i> Settings & Customization</h2>
+        <button class="modal-close" id="close-settings-modal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="control-block">
+          <h3><i class="fa-solid fa-palette"></i> Car Paint Finish</h3>
+          <div class="car-paint-palette">
+            <button class="paint-swatch active" data-color="#f8fafc" style="background:#f8fafc;" title="Pure White Metallic"></button>
+            <button class="paint-swatch" data-color="#e2e8f0" style="background:#cbd5e1;" title="Silver Chrome"></button>
+            <button class="paint-swatch" data-color="#1e293b" style="background:#1e293b;" title="Midnight Stealth"></button>
+            <button class="paint-swatch" data-color="#f59e0b" style="background:#f59e0b;" title="Racing Yellow"></button>
+            <button class="paint-swatch" data-color="#ef4444" style="background:#ef4444;" title="Rosso Corsa Red"></button>
+            <button class="paint-swatch" data-color="#06b6d4" style="background:#06b6d4;" title="Electric Cyan"></button>
+            <button class="paint-swatch" data-color="#10b981" style="background:#10b981;" title="Emerald Green"></button>
+          </div>
+        </div>
+
+        <div class="control-block">
+          <h3><i class="fa-solid fa-gauge"></i> Fast Demo Speed</h3>
+          <div class="btn-pill-group">
+            <button class="btn-ctrl active" id="demo-speed-1" data-speed="1">1 Min / 3s</button>
+            <button class="btn-ctrl" id="demo-speed-5" data-speed="5">5 Min / 3s</button>
+            <button class="btn-ctrl" id="demo-speed-10" data-speed="10">10 Min / 3s</button>
+            <button class="btn-ctrl" id="demo-speed-sec" data-speed="sec">1 Sec / 0.8s</button>
+          </div>
+        </div>
+
+        <div class="control-block">
+          <h3><i class="fa-solid fa-sliders"></i> Visual Options</h3>
+          <div class="toggle-list">
+            <label class="toggle-item">
+              <span>Tarmac Traffic Cones</span>
+              <input type="checkbox" id="toggle-cones" checked>
+              <span class="slider-toggle"></span>
+            </label>
+            <label class="toggle-item">
+              <span>Tire Skid Marks & Oil Stains</span>
+              <input type="checkbox" id="toggle-skidmarks" checked>
+              <span class="slider-toggle"></span>
+            </label>
+            <label class="toggle-item">
+              <span>Corner Floodlight Towers</span>
+              <input type="checkbox" id="toggle-floodlights" checked>
+              <span class="slider-toggle"></span>
+            </label>
+            <label class="toggle-item">
+              <span>Smooth Camera Damping</span>
+              <input type="checkbox" id="toggle-damping" checked>
+              <span class="slider-toggle"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="control-block">
+          <h3><i class="fa-solid fa-volume-high"></i> Audio Synthesis</h3>
+          <div class="scrubber-item">
+            <label for="slider-volume">Master Volume: <span id="val-volume">70%</span></label>
+            <input type="range" id="slider-volume" min="0" max="100" value="70">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help & Shortcuts Modal -->
+  <div id="help-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-circle-question"></i> Guide & Keybindings</h2>
+        <button class="modal-close" id="close-help-modal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="section-desc">
+          Welcome to the <strong>3D Car Digital Clock</strong>, an interactive digital art installation where real-time time is displayed by fleets of white sports sedans forming 7-segment digits on an airport tarmac.
+        </p>
+
+        <div class="keybindings-table">
+          <div class="key-row"><span class="key-badge">1</span> <span>Aerial Top-Down Camera (Drone Shot)</span></div>
+          <div class="key-row"><span class="key-badge">2</span> <span>Perspective 3D Isometric View</span></div>
+          <div class="key-row"><span class="key-badge">3</span> <span>Follow Car Chase Camera</span></div>
+          <div class="key-row"><span class="key-badge">4</span> <span>Free Orbit Controls</span></div>
+          <div class="key-row"><span class="key-badge">N</span> <span>Toggle Day / Sunset / Night Lighting</span></div>
+          <div class="key-row"><span class="key-badge">Space</span> <span>Toggle Fast Demo / Live Mode</span></div>
+          <div class="key-row"><span class="key-badge">S</span> <span>Toggle Audio Sound FX</span></div>
+          <div class="key-row"><span class="key-badge">H</span> <span>Toggle HUD Overlay</span></div>
+          <div class="key-row"><span class="key-badge">Left Drag</span> <span>Orbit / Rotate View</span></div>
+          <div class="key-row"><span class="key-badge">Scroll</span> <span>Zoom In / Out</span></div>
+          <div class="key-row"><span class="key-badge">Right Drag</span> <span>Pan Camera</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main JavaScript App -->
+  <script src="script.js"></script>
+</body>
+</html>
